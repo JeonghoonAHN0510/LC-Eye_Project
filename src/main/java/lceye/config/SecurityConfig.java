@@ -21,8 +21,8 @@ public class SecurityConfig {
                 // 권한 목록 : ADMIN, MANAGER, WORKER
                 .requestMatchers("/api/lci/**").hasAnyRole("ADMIN", "MANAGER", "WORKER")
                 .requestMatchers("/api/inout/**").hasAnyRole("ADMIN", "MANAGER", "WORKER")
-                .requestMatchers("/api/project/manager").hasAnyRole("ADMIN", "MANAGER")
                 .requestMatchers("/api/project/**").hasAnyRole("ADMIN", "MANAGER", "WORKER")
+                .requestMatchers("/api/units/**").hasAnyRole("ADMIN", "MANAGER", "WORKER")
                 // 일단 모든 요청에 대한 권한 허용
                 .requestMatchers("/**").permitAll()
         );

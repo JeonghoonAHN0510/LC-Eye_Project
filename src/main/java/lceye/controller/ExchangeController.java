@@ -3,8 +3,6 @@ package lceye.controller;
 import jakarta.servlet.http.HttpSession;
 import lceye.model.dto.MemberDto;
 import lceye.service.ExchangeService;
-import lceye.service.FileService;
-import lceye.service.TranslationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +17,6 @@ public class ExchangeController {
     /**
      * 서비스 불러오기
      */
-    private final TranslationService translationService;
     private final ExchangeService exchangeService;
 
     /**

@@ -58,8 +58,8 @@ public class ProjectController {
     @GetMapping("/all")
     public ResponseEntity<?> readAllProject(HttpSession session){
         MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
-
-
+        System.out.println("session = " + session);
+        System.out.println("memberDto = " + memberDto);
         return ResponseEntity.ok(projectService.readAllProject(memberDto));
     } // func end
 

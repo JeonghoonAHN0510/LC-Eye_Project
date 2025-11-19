@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service @RequiredArgsConstructor
@@ -30,4 +31,10 @@ public class UnitsService {
         return null;
     }// func end
 
+    /**
+     * [UN-01] 단위 조회
+     */
+    public List<UnitsDto> readAllUnit(){
+        return unitsRepository.findAll().stream().map(UnitsEntity :: toDto).toList();
+    }// func end
 }// class end
