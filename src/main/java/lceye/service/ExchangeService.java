@@ -1,5 +1,6 @@
 package lceye.service;
 
+import lceye.model.dto.MemberDto;
 import lceye.model.dto.ProcessInfoDto;
 import lceye.model.dto.ProjectDto;
 import lceye.model.dto.UnitsDto;
@@ -16,7 +17,6 @@ import java.util.*;
 public class ExchangeService {
 
     private final FileService fileService;
-    private final JwtService jwtService;
     private final ProjectService projectService;
     private final TranslationService translationService;
     private final UnitsService unitsService;
@@ -26,14 +26,12 @@ public class ExchangeService {
      * 투입물·산출물 저장/수정
      *
      * @param exchangeList 투입물·산출물
-     * @param token 작성자 토큰
      * @return boolean
      * @author 민성호
      */
-    public boolean saveInfo(Map<String, Object> exchangeList , String token){
-        if (!jwtService.validateToken(token)) return false;
-        int cno = jwtService.getCnoFromClaims(token);
-        int mno = jwtService.getMnoFromClaims(token);
+    public boolean saveInfo(Map<String, Object> exchangeList , MemberDto memberDto){
+        int cno = memberDto.getCno();
+        int mno = memberDto.getMno();
         int pjNumber = (int) exchangeList.get("pjno");
         ProjectDto pjDto = projectService.findByPjno(pjNumber);
         if (pjDto == null) return false;
@@ -84,14 +82,11 @@ public class ExchangeService {
      * 로그인한 회원의 회사파일에서 일치하는 데이터 찾기
      *
      * @param clientInput 클라이언트가 입력한 투입물·산출물
-     * @param token 로그인한 회원의 토큰
      * @return Map<String,Object>
      * @author 민성호
      */
-    public Map<String,Object> autoMatchCno(List<String> clientInput , String token){
-        if (!jwtService.validateToken(token)) return null;
-        int cno = jwtService.getCnoFromClaims(token);
-        System.out.println("clientInput = " + clientInput + ", token = " + token);
+    public Map<String,Object> autoMatchCno(List<String> clientInput , MemberDto memberDto){
+        int cno = memberDto.getCno();
         Set<String> inputSet = new HashSet<>(clientInput);
         Map<String, List<String>> requestMap = new HashMap<>();
         String companyNumber = String.valueOf(cno);
@@ -124,14 +119,11 @@ public class ExchangeService {
      * 로그인한 회원의 작성파일에서 일치하는 데이터 찾기
      *
      * @param clientInput 클라이언트가 입력한 투입물·산출물
-     * @param token 로그인한 회원의 토큰
      * @return Map<String,Object>
      * @author 민성호
      */
-    public Map<String,Object> autoMatchPjno(List<String> clientInput , String token){
-        if (!jwtService.validateToken(token)) return null;
-        int mno = jwtService.getMnoFromClaims(token);
-        System.out.println("clientInput = " + clientInput + ", token = " + token);
+    public Map<String,Object> autoMatchPjno(List<String> clientInput , MemberDto memberDto){
+        int mno = memberDto.getMno();
         List<ProjectDto> projectDtos = projectService.findByMno(mno);
         Set<String> inputSet = new HashSet<>(clientInput);
         Map<String, List<String>> requestMap = new HashMap<>();
@@ -168,14 +160,12 @@ public class ExchangeService {
     /**
      * json 파일 삭제
      *
-     * @param token 로그인한 회원의 토큰
      * @param pjno 삭제하는 프로젝트 번호
      * @return boolean
      * @author 민성호
      */
-    public boolean clearIOInfo(String token , int pjno){
-        if (!jwtService.validateToken(token)) return false;
-        int cno = jwtService.getCnoFromClaims(token);
+    public boolean clearIOInfo(MemberDto memberDto , int pjno){
+        int cno = memberDto.getCno();
         ProjectDto dto = projectService.findByPjno(pjno);
         System.out.println("dto = " + dto);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");

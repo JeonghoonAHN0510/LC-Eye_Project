@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception{
@@ -30,14 +29,9 @@ public class SecurityConfig {
         // 2. 차단된 csrf 차단 해체
         httpSecurity.csrf(csrf -> csrf.disable());
 
-        // 3. 시큐리티 세션 기반 토큰 해제
-        httpSecurity.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        // 4. 내가 만든 토큰으로 교체
-        httpSecurity.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        // 5. 내가 만든 CorsConfig 설정
+        // 3. 내가 만든 CorsConfig 설정
         httpSecurity.cors(Customizer.withDefaults());
-        // 6. 커스텀 완료된 객체 반환
+        // 4. 커스텀 완료된 객체 반환
         return httpSecurity.build();
     } // func end
 } // class end

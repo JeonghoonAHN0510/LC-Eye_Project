@@ -1,5 +1,7 @@
 package lceye.controller;
 
+import jakarta.servlet.http.HttpSession;
+import lceye.model.dto.MemberDto;
 import lceye.model.dto.ProjectDto;
 import lceye.service.ProjectService;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +26,14 @@ public class ProjectController {
      * @author OngTK
      */
     @PostMapping
-    public ResponseEntity<?> saveProject(@CookieValue(value = "loginMember", required = false) String token,
+    public ResponseEntity<?> saveProject(HttpSession session,
                                          @RequestBody ProjectDto projectDto){
-        ProjectDto result = null;
-        // [1.1] 쿠키 내 토큰이 존재
-        if(token!=null){
-            result = projectService.saveProject(token,projectDto);
+        ProjectDto result;
+
+        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
+
+        if(memberDto!=null){
+            result = projectService.saveProject(memberDto,projectDto);
         } else {
             return ResponseEntity.status(403).body("로그인 토큰이 존재하지 않습니다.");
         }
@@ -52,8 +56,11 @@ public class ProjectController {
      * @author OngTK
      */
     @GetMapping("/all")
-    public ResponseEntity<?> readAllProject(@CookieValue(value = "loginMember", required = false) String token){
-        return ResponseEntity.ok(projectService.readAllProject(token));
+    public ResponseEntity<?> readAllProject(HttpSession session){
+        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
+
+
+        return ResponseEntity.ok(projectService.readAllProject(memberDto));
     } // func end
 
     /**
@@ -66,9 +73,11 @@ public class ProjectController {
      * @quthor OngTK
      */
     @GetMapping
-    public ResponseEntity<?> readProject(@CookieValue(value = "loginMember", required = false) String token,
+    public ResponseEntity<?> readProject(HttpSession session,
                                          @RequestParam int pjno){
-        return ResponseEntity.ok(projectService.readProject(token, pjno));
+        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
+
+        return ResponseEntity.ok(projectService.readProject(memberDto, pjno));
     } // func end
 
     /**
@@ -78,9 +87,12 @@ public class ProjectController {
      * @author OngTK
      */
     @PutMapping
-    public ResponseEntity<?> updateProject(@CookieValue(value = "loginMember", required = false) String token,
+    public ResponseEntity<?> updateProject(HttpSession session,
                                            @RequestBody ProjectDto projectDto){
-        ProjectDto result = projectService.updateProject(token, projectDto);
+        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
+
+
+        ProjectDto result = projectService.updateProject(memberDto, projectDto);
         if(result == null){
             return ResponseEntity.status(403).body("잘못된 요청입니다.");
         }

@@ -10,6 +10,8 @@ public class WebClientConfig {
     @Bean
     public WebClient webClient(){
         // 일단 기본적은 WebClient 생성 및 반환
-        return WebClient.builder().build();
+        return WebClient.builder()
+                .baseUrl("http://localhost:8080/")
+                .build();
     } // func end
 } // class end
