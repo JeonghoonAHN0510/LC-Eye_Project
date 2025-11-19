@@ -10,7 +10,6 @@ import lceye.model.dto.ProjectDto;
 import lceye.model.entity.MemberEntity;
 import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.UnitsEntity;
-import lceye.model.repository.MemberRepository;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.UnitsRepository;
 import lombok.RequiredArgsConstructor;
