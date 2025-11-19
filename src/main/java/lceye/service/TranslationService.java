@@ -2,10 +2,7 @@ package lceye.service;
 
 import com.deepl.api.DeepLClient;
 import com.deepl.api.TextResult;
-import com.google.cloud.translate.v3.LocationName;
-import com.google.cloud.translate.v3.TranslateTextRequest;
-import com.google.cloud.translate.v3.TranslateTextResponse;
-import com.google.cloud.translate.v3.TranslationServiceClient;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

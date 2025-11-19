@@ -39,6 +39,8 @@ public class UnitsEntity extends BaseTime{
                 .unit(this.unit)
                 .uvalue(this.uvalue)
                 .uuuid(this.uuuid)
+                .ugno(this.unitGroupEntity.getUgno())
+                .ugname(this.unitGroupEntity.getUgname())
                 .createdate(this.getCreatedate().toString())
                 .updatedate(this.getUpdatedate().toString())
                 .build();

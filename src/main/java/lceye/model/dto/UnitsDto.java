@@ -21,6 +21,7 @@ public class UnitsDto {
     private String updatedate;
 
     // 2. 부가적인 정보
+    private String ugname;
 
 
     // 3. toEntity 생성

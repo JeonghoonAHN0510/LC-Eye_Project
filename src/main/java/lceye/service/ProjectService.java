@@ -1,43 +1,45 @@
 package lceye.service;
 
-import lceye.model.dto.MemberDto;
-import lceye.model.dto.ProjectDto;
-import lceye.model.entity.ProjectEntity;
-import lceye.model.entity.UnitsEntity;
-import lceye.model.repository.ProjectRepository;
-import lceye.model.repository.UnitsRepository;
-import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Mono;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 import java.util.Optional;
+
+import lceye.model.dto.ProjectDto;
+import lceye.model.entity.MemberEntity;
+import lceye.model.entity.ProjectEntity;
+import lceye.model.entity.UnitsEntity;
+import lceye.model.repository.MemberRepository;
+import lceye.model.repository.ProjectRepository;
+import lceye.model.repository.UnitsRepository;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Service
 @Transactional
 public class ProjectService {
+    private final JwtService jwtService;
     private final ProjectRepository projectRepository;
-    private final UnitsRepository unitsRepository;
-    private final WebClient webClient;
-
+    private final MemberRepository memberRepository;
+    private final UnitsRepository unitsRepository ;
     /**
      * [PJ-01] 프로젝트 등록
      */
-    public ProjectDto saveProject(MemberDto memberDto, ProjectDto projectDto){
+    public ProjectDto saveProject(String token, ProjectDto projectDto){
         System.out.println("ProjectService.saveProject");
+        System.out.println("token = " + token + ", projectDto = " + projectDto);
 
+        // [1.1] Token이 없으면
+        if(!jwtService.validateToken(token)) return projectDto; // PK 발급 안되고 종료
         // [1.2] 토큰이 존재한다면, 토큰에서 mno(작성자) 정보를 추출
-        int mno = memberDto.getMno();
+        int mno = jwtService.getMnoFromClaims(token);
         // [1.3] 부가 entity _ MemberEntity, UnitsEntity 가져오기
-        MemberDto result = getMemberDtoById(mno);
+        MemberEntity memberEntity = memberRepository.getReferenceById(mno);
         UnitsEntity unitsEntity = unitsRepository.getReferenceById(projectDto.getUno());
         // [1.4] dto > entity
         ProjectEntity projectEntity = projectDto.toEntity();
-        projectEntity.setMemberEntity(result.toEntity());
+        projectEntity.setMemberEntity(memberEntity);
         projectEntity.setUnitsEntity(unitsEntity);
         // [1.4] entity 저장
         projectRepository.save(projectEntity);
@@ -112,23 +114,22 @@ public class ProjectService {
     /**
      * [PJ-02] 프로젝트 전체조회
      */
-    public List<ProjectDto> readAllProject(MemberDto memberDto){
-        System.out.println("ProjectService.readAllProject");
-        System.out.println("memberDto = " + memberDto);
+    public List<ProjectDto> readAllProject(String token){
+        // [2.1] Token이 없으면 null로 반환
+        if(!jwtService.validateToken(token)) return null;
         // [2.2] Token이 있으면, 토큰에서 로그인한 사용자 정보 추출
-        int mno = memberDto.getMno();
-        String mrole = memberDto.getMrole();
+        int mno = jwtService.getMnoFromClaims(token);
+        String mrole = jwtService.getRoleFromClaims(token);
         // [2.3] mno로 MemberRepository 조회
-        MemberDto result = getMemberDtoById(mno);
-        System.out.println("result = " + result);
+        MemberEntity memberEntity = memberRepository.getReferenceById(mno);
         // [2.4] mrole(역할)에 따른 서로 다른 조회 구현
         // [2.4.1] mrole = admin or manager : cno 기반 프로젝트 전체 조회
         if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
-            return projectRepository.searchCno(result.getCno()).stream().map(ProjectEntity :: toDto).toList();
+            return projectRepository.searchCno(memberEntity.getCompanyEntity().getCno()).stream().map(ProjectEntity :: toDto).toList();
         }
         // [2.4.2] mrole = worker : mno 기반 본인이 작성한 프로젝트만 조회
         if(mrole.equals("WORKER")){
-            return projectRepository.findByMemberEntity(result.toEntity()).stream().map(ProjectEntity :: toDto).toList();
+            return projectRepository.findByMemberEntity(memberEntity).stream().map(ProjectEntity :: toDto).toList();
         }
         return null;
     } // func end
@@ -139,20 +140,22 @@ public class ProjectService {
      * 권한을 확인하여 worker면, 본인의 프로젝트만 상세 조회 가능
      * 권한이 admin, manager 이면, 본인 프로젝트가 아닌 회사 프로젝트도 조회 가능
      */
-    public ProjectDto readProject(MemberDto memberDto, int pjNo){
+    public ProjectDto readProject(String token, int pjNo){
+        // [3.1] Token, pjNo가 없으면 null로 반환
+        if(!jwtService.validateToken(token)) return null;
         if(pjNo == 0) return null;
         // [3.2] Token이 있으면, 토큰에서 로그인한 사용자 정보 추출
-        int mno = memberDto.getMno();
-        String mrole = memberDto.getMrole();
+        int mno = jwtService.getMnoFromClaims(token);
+        String mrole = jwtService.getRoleFromClaims(token);
         // [3.3] mno로 MemberRepository 조회
-        MemberDto memberDtoById = getMemberDtoById(mno);
+        MemberEntity memberEntity = memberRepository.getReferenceById(mno);
         // [3.4] mrole(역할)에 따른 서로 다른 조회 구현
         // [3.5] mrole = admin or manager
         if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
             // [3.5.1] project Entity 조회
              ProjectEntity result = projectRepository.getReferenceById(pjNo);
             // [3.5.2] 작성자의 cno 와 로그인한 계정의 cno가 일치하지 않으면 null
-            if( result.getMemberEntity().getCompanyEntity().getCno() != memberDtoById.getCno()) return null;
+            if( result.getMemberEntity().getCompanyEntity().getCno() != memberEntity.getCompanyEntity().getCno()) return null;
             // [3.5.3] 일치하므로 결과 반환
             return result.toDto();
         }
@@ -171,11 +174,12 @@ public class ProjectService {
     /**
      * [PJ-04] 프로젝트 수정
      */
-    public ProjectDto updateProject(MemberDto memberDto, ProjectDto projectDto){
+    public ProjectDto updateProject(String token, ProjectDto projectDto){
         // [4.1] Token, pjNo가 없으면 null로 반환
+        if(!jwtService.validateToken(token)) return null;
         if(projectDto.getPjno() == 0) return null;
         // [4.2] Token이 있으면, 토큰에서 로그인한 사용자 정보 추출
-        int mno = memberDto.getMno();
+        int mno = jwtService.getMnoFromClaims(token);
         // [4.3] projectEntity 조회
         Optional<ProjectEntity> optional = projectRepository.findById(projectDto.getPjno());
         // [4.4] projectEntity 가 존재하는 지 확인
@@ -195,14 +199,4 @@ public class ProjectService {
         return null;
     }// func end
 
-    public MemberDto getMemberDtoById(int mno){
-        Mono<MemberDto> mono = webClient.get()
-                .uri("/api/member/memberdtobyid?mno=" + mno)
-                .retrieve()
-                .bodyToMono(MemberDto.class);
-        System.out.println("===========================================");
-        System.out.println(mono.block());
-        System.out.println("===========================================");
-        return mono.block();
-    } // func end
 } // class end

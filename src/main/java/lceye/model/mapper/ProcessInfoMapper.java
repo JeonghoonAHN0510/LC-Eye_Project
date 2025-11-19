@@ -1,8 +1,9 @@
 package lceye.model.mapper;
 
-import lceye.model.dto.ProcessInfoDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
+
+import lceye.model.dto.ProcessInfoDto;
 
 @Mapper
 public interface ProcessInfoMapper {

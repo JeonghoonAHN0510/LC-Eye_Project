@@ -1,11 +1,12 @@
 package lceye.model.repository;
 
-import lceye.model.entity.MemberEntity;
-import lceye.model.entity.ProjectEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+
+import lceye.model.entity.MemberEntity;
+import lceye.model.entity.ProjectEntity;
 
 public interface ProjectRepository extends JpaRepository<ProjectEntity, Integer> {
 

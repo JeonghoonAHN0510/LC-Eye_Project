@@ -1,14 +1,14 @@
 package lceye.controller;
 
-import jakarta.servlet.http.HttpSession;
-import lceye.model.dto.MemberDto;
-import lceye.service.ExchangeService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+
+import lceye.service.ExchangeService;
+import lceye.service.TranslationService;
+import lombok.RequiredArgsConstructor;
 
 @RestController @RequestMapping("/api/inout")
 @RequiredArgsConstructor
@@ -17,22 +17,27 @@ public class ExchangeController {
     /**
      * 서비스 불러오기
      */
+    private final TranslationService translationService;
     private final ExchangeService exchangeService;
+
+    //@PostMapping("/auto") // localhost:8080/api/inout/auto
+    //public ResponseEntity<?> test(){
+    //    String text = "경유";
+    //    return ResponseEntity.ok(translationService.Translate(text));
+    //}// func end
 
     /**
      * 투입물·산출물 저장/수정
      *
+     * @param token 로그인 토큰
      * @param map 투입물·산출물 정보
      * @return boolean
      * @author 민성호
      */
     @PostMapping
-    public ResponseEntity<?> saveIOInfo(@RequestBody Map<String,Object> map,
-                                        HttpSession session){
-        // 1. 세션에서 로그인 정보 꺼내기
-        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
-
-        return ResponseEntity.ok(exchangeService.saveInfo(map,memberDto));
+    public ResponseEntity<?> saveIOInfo(@CookieValue(value = "loginMember", required = false) String token,
+                                        @RequestBody Map<String,Object> map){
+        return ResponseEntity.ok(exchangeService.saveInfo(map,token));
     }// func end
 
     /**
@@ -44,13 +49,11 @@ public class ExchangeController {
      * @author 민성호
      */
     @PostMapping("/auto")
-    public ResponseEntity<?> matchIO(HttpSession session,
+    public ResponseEntity<?> matchIO(@CookieValue(value = "loginMember", required = false) String token,
                                      @RequestBody List<String> inputList){
-        // 1. 세션에서 로그인 정보 꺼내기
-        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
-
-        Map<String,Object> pjnoMap = exchangeService.autoMatchPjno(inputList,memberDto);
-        Map<String,Object> cnoMap = exchangeService.autoMatchCno(inputList,memberDto);
+        System.out.println("token = " + token + ", inputList = " + inputList);
+        Map<String,Object> pjnoMap = exchangeService.autoMatchPjno(inputList,token);
+        Map<String,Object> cnoMap = exchangeService.autoMatchCno(inputList,token);
         if (pjnoMap != null && !pjnoMap.isEmpty()){
             return ResponseEntity.ok(pjnoMap);
         } else if (cnoMap != null && !cnoMap.isEmpty()) {
@@ -63,17 +66,15 @@ public class ExchangeController {
     /**
      * 프로젝트 초기화
      *
+     * @param token 로그인한 회원의 토큰
      * @param pjno 삭제할 프로젝트번호
      * @return boolean
      * @author 민성호
      */
     @DeleteMapping
-    public ResponseEntity<?> clearIOInfo(HttpSession session,
+    public ResponseEntity<?> clearIOInfo(@CookieValue(value = "loginMember", required = false) String token,
                                          @RequestParam int pjno){
-        // 1. 세션에서 로그인 정보 꺼내기
-        MemberDto memberDto = (MemberDto) session.getAttribute("loginMember");
-
-        return ResponseEntity.ok(exchangeService.clearIOInfo(memberDto,pjno));
+        return ResponseEntity.ok(exchangeService.clearIOInfo(token,pjno));
     }// func end
 
 }// class end

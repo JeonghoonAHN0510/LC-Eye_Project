@@ -1,7 +1,8 @@
 package lceye.model.repository;
 
-import lceye.model.entity.UnitsEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import lceye.model.entity.UnitsEntity;
 
 public interface UnitsRepository extends JpaRepository<UnitsEntity, Integer> {
 }

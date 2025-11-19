@@ -20,7 +20,6 @@ public class UnitsController {
      */
     @GetMapping
     public ResponseEntity<?> readAllUnit(){
-        System.out.println("UnitsController.readAllUnit");
         return ResponseEntity.ok(unitsService.readAllUnit());
     } // func end
 
