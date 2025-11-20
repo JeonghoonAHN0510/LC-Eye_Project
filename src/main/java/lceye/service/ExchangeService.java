@@ -19,6 +19,7 @@ public class ExchangeService {
     private final ProjectService projectService;
     private final TranslationService translationService;
     private final UnitsService unitsService;
+    private final JwtService jwtService;
     private final ProcessInfoService processInfoService;
 
     /**

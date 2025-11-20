@@ -8,6 +8,9 @@ import lceye.model.mapper.ProjectMapper;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.UnitsRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,9 +21,15 @@ import java.util.Optional;
 @Service
 @Transactional
 public class ProjectService {
+    private final RedisTemplate<String, String> redisStringTemplate;
     private final ProjectRepository projectRepository;
     private final UnitsRepository unitsRepository ;
     private final ProjectMapper projectMapper;
+    private final JwtService jwtService;
+    private final ChannelTopic topic;
+    private final RedisService redisService;
+
+
     /**
      * [PJ-01] 프로젝트 등록
      */
@@ -33,7 +42,7 @@ public class ProjectService {
         // [1.2] 토큰이 존재한다면, 토큰에서 mno(작성자) 정보를 추출
         int mno = jwtService.getMnoFromClaims(token);
         // [1.3] 부가 entity _ MemberEntity, UnitsEntity 가져오기
-        MemberEntity memberEntity = memberRepository.getReferenceById(mno);
+        MemberEntity memberEntity = getMemberEntity(mno);
         UnitsEntity unitsEntity = unitsRepository.getReferenceById(projectDto.getUno());
         // [1.4] dto > entity
         ProjectEntity projectEntity = projectDto.toEntity();
@@ -130,7 +139,7 @@ public class ProjectService {
         int mno = jwtService.getMnoFromClaims(token);
         String mrole = jwtService.getRoleFromClaims(token);
         // [2.3] mno로 MemberRepository 조회
-        MemberEntity memberEntity = memberRepository.getReferenceById(mno);
+        MemberEntity memberEntity = getMemberEntity(mno);
         // [2.4] mrole(역할)에 따른 서로 다른 조회 구현
         // [2.4.1] mrole = admin or manager : cno 기반 프로젝트 전체 조회
         if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
@@ -157,7 +166,7 @@ public class ProjectService {
         int mno = jwtService.getMnoFromClaims(token);
         String mrole = jwtService.getRoleFromClaims(token);
         // [3.3] mno로 MemberRepository 조회
-        MemberEntity memberEntity = memberRepository.getReferenceById(mno);
+        MemberEntity memberEntity = getMemberEntity(mno);
         // [3.4] mrole(역할)에 따른 서로 다른 조회 구현
         // [3.5] mrole = admin or manager
         if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
@@ -208,4 +217,9 @@ public class ProjectService {
         return null;
     }// func end
 
+    public MemberEntity getMemberEntity(int mno){
+        redisStringTemplate.convertAndSend(topic.getTopic(), mno + "");
+
+        return redisService.getMemberDto().toEntity();
+    } // func end
 } // class end
