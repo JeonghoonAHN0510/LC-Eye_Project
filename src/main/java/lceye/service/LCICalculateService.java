@@ -1,18 +1,16 @@
 package lceye.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-
 import lceye.model.dto.CalculateResultDto;
 import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.ProjectResultFileEntity;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -316,6 +314,19 @@ public class LCICalculateService {
         if(fileName.isBlank()) return null;
         // [2] 파일명으로 파일 찾아오기
         return fileService.readFile("result",fileName);
+    } // func end
+
+    /**
+     * [LCI-03] LCI 결과 존재 여부 확인
+     * @author OngTK
+     */
+    public String checkLCI(int pjno){
+        // [1] pjno로 project_resultfile 테이블에서 가장 최신의 레코드를 찾고, 파일명을 확인
+        String fileName = projectResultFileRepository.returnFilename(pjno);
+        // [2] 조회 되는게 없으면 null 반환
+        if(fileName.isBlank()) return null;
+        // [3] 조회된 String을 반환
+        return fileName;
     } // func end
 
 } // class end

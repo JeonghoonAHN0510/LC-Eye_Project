@@ -1,27 +1,26 @@
 package lceye.service;
 
+import lceye.model.dto.ProjectDto;
+import lceye.model.entity.MemberEntity;
+import lceye.model.entity.ProjectEntity;
+import lceye.model.entity.UnitsEntity;
+import lceye.model.mapper.ProjectMapper;
+import lceye.model.repository.ProjectRepository;
+import lceye.model.repository.UnitsRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-import lceye.model.dto.ProjectDto;
-import lceye.model.entity.MemberEntity;
-import lceye.model.entity.ProjectEntity;
-import lceye.model.entity.UnitsEntity;
-import lceye.model.repository.ProjectRepository;
-import lceye.model.repository.UnitsRepository;
-import lombok.RequiredArgsConstructor;
-
 @RequiredArgsConstructor
 @Service
 @Transactional
 public class ProjectService {
-    private final JwtService jwtService;
     private final ProjectRepository projectRepository;
-    private final MemberRepository memberRepository;
     private final UnitsRepository unitsRepository ;
+    private final ProjectMapper projectMapper;
     /**
      * [PJ-01] 프로젝트 등록
      */
@@ -73,6 +72,17 @@ public class ProjectService {
             return entity.toDto();
         }// if end
         return null;
+    }// func end
+
+    /**
+     * 회사번호로 프로젝트파일명 조회
+     *
+     * @param cno 회사번호
+     * @return 파일명 리스트
+     * @author 민성호
+     */
+    public List<String> findByCno(int cno){
+        return projectMapper.findByCno(cno);
     }// func end
 
     /**
@@ -152,7 +162,7 @@ public class ProjectService {
         // [3.5] mrole = admin or manager
         if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
             // [3.5.1] project Entity 조회
-             ProjectEntity result = projectRepository.getReferenceById(pjNo);
+            ProjectEntity result = projectRepository.getReferenceById(pjNo);
             // [3.5.2] 작성자의 cno 와 로그인한 계정의 cno가 일치하지 않으면 null
             if( result.getMemberEntity().getCompanyEntity().getCno() != memberEntity.getCompanyEntity().getCno()) return null;
             // [3.5.3] 일치하므로 결과 반환

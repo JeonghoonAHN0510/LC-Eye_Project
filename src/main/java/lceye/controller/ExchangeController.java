@@ -1,14 +1,14 @@
 package lceye.controller;
 
+import lceye.service.ExchangeService;
+import lceye.service.TranslationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-
-import lceye.service.ExchangeService;
-import lceye.service.TranslationService;
-import lombok.RequiredArgsConstructor;
+import java.util.Set;
 
 @RestController @RequestMapping("/api/inout")
 @RequiredArgsConstructor
@@ -17,7 +17,6 @@ public class ExchangeController {
     /**
      * 서비스 불러오기
      */
-    private final TranslationService translationService;
     private final ExchangeService exchangeService;
 
     //@PostMapping("/auto") // localhost:8080/api/inout/auto
@@ -51,15 +50,11 @@ public class ExchangeController {
     @PostMapping("/auto")
     public ResponseEntity<?> matchIO(@CookieValue(value = "loginMember", required = false) String token,
                                      @RequestBody List<String> inputList){
-        System.out.println("token = " + token + ", inputList = " + inputList);
-        Map<String,Object> pjnoMap = exchangeService.autoMatchPjno(inputList,token);
-        Map<String,Object> cnoMap = exchangeService.autoMatchCno(inputList,token);
+        Map<String, Set<String>> pjnoMap = exchangeService.autoMatchPjno(inputList,token);
         if (pjnoMap != null && !pjnoMap.isEmpty()){
             return ResponseEntity.ok(pjnoMap);
-        } else if (cnoMap != null && !cnoMap.isEmpty()) {
-            return ResponseEntity.ok(cnoMap);
-        }else {
-            return ResponseEntity.ok(exchangeService.similarity(inputList));
+        } else {
+            return ResponseEntity.status(404).body(null);
         }// if end
     }// func end
 

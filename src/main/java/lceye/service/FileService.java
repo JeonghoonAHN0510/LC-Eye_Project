@@ -1,15 +1,14 @@
 package lceye.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.FilenameFilter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.Reader;
+import java.util.*;
 
 @Service
 public class FileService {
@@ -76,7 +75,7 @@ public class FileService {
      * @author 민성호
      */
     public List<Map<String, Object>> filterFile(String name) {
-        File filterDir = new File(path);
+        File filterDir = new File(path+"exchange");
         ObjectMapper mapper = new ObjectMapper();
         List<Map<String, Object>> list = new ArrayList();
         File[] fileNameList = filterDir.listFiles(new FilenameFilter() {
@@ -85,7 +84,7 @@ public class FileService {
                 return name.endsWith(".json");
             }
         });
-        System.out.println("fileNameList = " + fileNameList);
+        System.out.println("fileNameList = " + Arrays.toString(fileNameList));
         try {
             if (fileNameList != null) {
                 for (File file : fileNameList) {
