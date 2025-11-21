@@ -9,8 +9,6 @@ import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.UnitsRepository;
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +19,10 @@ import java.util.Optional;
 @Service
 @Transactional
 public class ProjectService {
-    private final RedisTemplate<String, String> redisStringTemplate;
     private final ProjectRepository projectRepository;
     private final UnitsRepository unitsRepository ;
     private final ProjectMapper projectMapper;
     private final JwtService jwtService;
-    private final ChannelTopic topic;
     private final RedisService redisService;
 
 
@@ -166,7 +162,7 @@ public class ProjectService {
         int mno = jwtService.getMnoFromClaims(token);
         String mrole = jwtService.getRoleFromClaims(token);
         // [3.3] mno로 MemberRepository 조회
-        MemberEntity memberEntity = getMemberEntity(mno);
+        MemberEntity memberEntity = getMemberEntity();
         // [3.4] mrole(역할)에 따른 서로 다른 조회 구현
         // [3.5] mrole = admin or manager
         if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
@@ -216,10 +212,4 @@ public class ProjectService {
         }
         return null;
     }// func end
-
-    public MemberEntity getMemberEntity(int mno){
-        redisStringTemplate.convertAndSend(topic.getTopic(), mno + "");
-
-        return redisService.getMemberDto().toEntity();
-    } // func end
 } // class end

@@ -1,33 +1,28 @@
 package lceye.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Service;
 
-import lceye.model.dto.MemberDto;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class RedisService implements MessageListener {
+    private final ProjectService projectService;
     private final ObjectMapper objectMapper;
-    private MemberDto result = null;
 
     @Override
     public void onMessage(Message message, byte[] pattern) {
-        String body = new String(message.getBody());
         try {
-            result = objectMapper.readValue(body, MemberDto.class);
-            System.out.println("result = " + result);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        } // try-catch end
-    } // func end
+            String body = new String(message.getBody());
+            System.out.println("[8081 서버] 요청 받음! ");
 
-    public MemberDto getMemberDto(){
-        return result;
+            System.out.println("[8081 서버] 응답 보냄: ");
+        } catch (Exception e) {
+            System.out.println("e = " + e);
+        } // try-catch end
     } // func end
 } // class end
