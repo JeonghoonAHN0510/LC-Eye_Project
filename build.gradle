@@ -59,7 +59,7 @@ dependencies {
     // [15] WebClient - 서버 간 통신을 위해
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     // [16] Redisson
-    implementation 'org.redisson:redisson-spring-boot-starter:3.16.3'
+    implementation 'org.redisson:redisson-spring-boot-starter:3.52.0'
     // [17] Redis Session
     implementation 'org.springframework.session:spring-session-data-redis'
 }
