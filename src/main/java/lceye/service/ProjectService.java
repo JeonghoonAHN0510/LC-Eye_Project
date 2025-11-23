@@ -1,10 +1,10 @@
 package lceye.service;
 
+import lceye.model.dto.MemberDto;
 import lceye.model.dto.ProjectDto;
 import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.UnitsEntity;
 import lceye.model.mapper.ProjectMapper;
-import lceye.model.repository.MemberRepository;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.UnitsRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +20,11 @@ import java.util.Optional;
 public class ProjectService {
     private final JwtService jwtService;
     private final ProjectRepository projectRepository;
-    private final MemberRepository memberRepository;
     private final UnitsRepository unitsRepository ;
     private final ProjectMapper projectMapper;
+    private final RedisService redisService;
+
+
     /**
      * [PJ-01] 프로젝트 등록
      */
@@ -161,32 +163,33 @@ public class ProjectService {
 
         // [3.3] 공통 정보 조회 : 프로젝트 정보 / 프로젝트 작성자 정보
         ProjectEntity resultEntity = projectRepository.getReferenceById(pjNo);
-        MemberEntity writer = memberRepository.getReferenceById(resultEntity.getMno());
+        MemberDto writer = redisService.getMemberEntityByMno(resultEntity.getMno());
+        if (writer != null){
+            // [3.4] mrole(역할)에 따른 서로 다른 조회 구현
 
-        // [3.4] mrole(역할)에 따른 서로 다른 조회 구현
-
-        // [3.5] mrole = admin or manager
-        if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
-            // [3.5.1] 작성자의 회사번호와 로그인한 사람의 회원번호가 일치하지 않는다면
-            if( writer.getCompanyEntity().getCno() != cno)
-            // null 반환
-            { return null; }
-            // [3.5.2] cno 일치 시, projectDto 에 작성자 이름 삽입
-            ProjectDto result = resultEntity.toDto();
-            result.setMname(writer.getMname());
-            // [3.5.4] 결과 반환
-            return result;
-        }
-        // [3.6] mrole = worker
-        if(mrole.equals("WORKER")){
-            // [3.6.1] 프로젝트 Entity 조회
-            ProjectDto result = resultEntity.toDto();
-            // [3.6.2] 작성자 mno와 로그인 계정의 mno가 일치하지 않으므로 null
-            if(result.getMno() != mno) return null; //
-            // [3.6.3] 조회 결과의 mno와 로그인 계정의 mno가 일치하면 작성자 이름 삽입
-            result.setMname(writer.getMname());
-            return result;
-        }
+            // [3.5] mrole = admin or manager
+            if(mrole.equals("ADMIN") || mrole.equals("MANAGER")){
+                // [3.5.1] 작성자의 회사번호와 로그인한 사람의 회원번호가 일치하지 않는다면
+                if( writer.getCno() != cno)
+                // null 반환
+                { return null; }
+                // [3.5.2] cno 일치 시, projectDto 에 작성자 이름 삽입
+                ProjectDto result = resultEntity.toDto();
+                result.setMname(writer.getMname());
+                // [3.5.4] 결과 반환
+                return result;
+            }
+            // [3.6] mrole = worker
+            if(mrole.equals("WORKER")){
+                // [3.6.1] 프로젝트 Entity 조회
+                ProjectDto result = resultEntity.toDto();
+                // [3.6.2] 작성자 mno와 로그인 계정의 mno가 일치하지 않으므로 null
+                if(result.getMno() != mno) return null; //
+                // [3.6.3] 조회 결과의 mno와 로그인 계정의 mno가 일치하면 작성자 이름 삽입
+                result.setMname(writer.getMname());
+                return result;
+            }
+        } // if end
         return null;
     } // func end
 

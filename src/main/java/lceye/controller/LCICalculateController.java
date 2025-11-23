@@ -1,5 +1,7 @@
 package lceye.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lceye.service.LCICalculateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +25,19 @@ public class LCICalculateController {
      * @author OngTK
      */
     @GetMapping("/calc")
-    public ResponseEntity<?> calcLCI(@RequestParam int pjno){
-        return ResponseEntity.ok(lciCalculateService.calcLCI(pjno));
+    public ResponseEntity<?> calcLCI(HttpServletRequest request,
+                                     @RequestParam int pjno){
+        // 1. session에서 토큰 꺼내기
+        HttpSession session = request.getSession(false);
+        String token = null;
+        if (session != null){
+            token = (String) session.getAttribute("loginMember");
+        } // if end
+        if (token != null){
+            return ResponseEntity.ok(lciCalculateService.calcLCI(pjno, token));
+        } else {
+            return ResponseEntity.status(401).body(null);
+        } // if end
     } // func end
 
     /**
