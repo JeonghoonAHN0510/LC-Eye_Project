@@ -2,7 +2,6 @@ package lceye.model.dto;
 
 import java.io.Serializable;
 
-import lceye.model.entity.MemberEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,15 +28,4 @@ public class MemberDto implements Serializable {
     private String token;
     private String cname;
 
-    // 3. toEntity 생성
-    public MemberEntity toEntity(){
-        return MemberEntity.builder()
-                .mno(this.mno)
-                .mname(this.mname)
-                .mid(this.mid)
-                .mrole(this.mrole)
-                .memail(this.memail)
-                .mphone(this.mphone)
-                .build();
-    } // func end
 } // class end

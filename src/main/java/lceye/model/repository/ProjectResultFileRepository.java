@@ -1,9 +1,8 @@
 package lceye.model.repository;
 
+import lceye.model.entity.ProjectResultFileEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-
-import lceye.model.entity.ProjectResultFileEntity;
 
 public interface ProjectResultFileRepository extends JpaRepository<ProjectResultFileEntity, Integer> {
 

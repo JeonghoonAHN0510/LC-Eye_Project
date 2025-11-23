@@ -17,7 +17,7 @@ public class ProcessInfoDto {
     private String pcname;
     private String pcdesc;
     private String pcsource;
-//    private String pcfilename; // OngTK 비활성화
+    //    private String pcfilename; // OngTK 비활성화
     private String createdate;
     private String updatedate;
 

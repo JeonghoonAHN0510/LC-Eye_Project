@@ -21,5 +21,4 @@ public class UnitsController {
     public ResponseEntity<?> readAllUnit(){
         return ResponseEntity.ok(unitsService.readAllUnit());
     } // func end
-
 } // class end

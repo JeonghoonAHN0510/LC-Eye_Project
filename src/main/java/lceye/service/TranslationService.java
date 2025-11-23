@@ -46,4 +46,3 @@ public class TranslationService {
     }// func end
 
 } // class end
-

@@ -55,7 +55,7 @@ public class RedisConfig {
                                                         ChannelTopic topic) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);      // Redis 연결 정보 설정
-        container.addMessageListener(redisService, topic);   // "8080server"에 오면 listenerAdapter 실행
+        container.addMessageListener(redisService, topic);   // "8081server"에 오면 listenerAdapter 실행
         return container;
     } // func end
 } // class end

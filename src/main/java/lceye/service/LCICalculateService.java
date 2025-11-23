@@ -3,11 +3,13 @@ package lceye.service;
 import lceye.model.dto.CalculateResultDto;
 import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.ProjectResultFileEntity;
+import lceye.model.repository.MemberRepository;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -20,6 +22,7 @@ public class LCICalculateService {
     private final ProjectRepository projectRepository;
     private final FileService fileService;
     private final ProjectResultFileRepository projectResultFileRepository;
+    private final MemberRepository memberRepository;
 
     /**
      * [LCI-01] LCI 계산하기
@@ -39,11 +42,10 @@ public class LCICalculateService {
         // [4.1] 프로세스 JSON 캐시
         Map<String, Map<String, Object>> processCache = new HashMap<>();
         // [4.2] 산출물 exchange(완제품) 저장용 변수 (puuid == null && isInput == false)
-        Map<String, Object> productExchange = null;
+        Map<String, Object> productExchange = new HashMap<>();
 
         // [5] exchange 를 1개씩 꺼내서 처리
         for (Map<String, Object> processExchange : processExchanges) {
-
             // [5.1] exchnage(process)의 uuid와 input 여부 꺼내기
             Object puuidObj = processExchange.get("puuid");
             Boolean isInput = (Boolean) processExchange.get("isInput");
@@ -51,7 +53,23 @@ public class LCICalculateService {
             if (puuidObj != null) { // exchange = 프로세스
                 // [6.1] puuis String으로 파싱, 해당 프로세스의 투입/산출양 확인
                 String searchPuuid = String.valueOf(puuidObj);
-                double pjeAmount = (double) processExchange.get("pjeamount");
+                // 타입 확인 후 처리
+                Object value = processExchange.get("pjeamount");
+                double pjeAmount = 0.0;
+                if (value instanceof Double) {
+                    pjeAmount = (Double) value;
+                }
+                else if (value instanceof Number) {
+                    // Integer, Long 등 Number 하위 타입 처리
+                    pjeAmount = ((Number) value).doubleValue();
+                }
+                else if (value instanceof String) {
+                    pjeAmount = Double.parseDouble((String) value);
+                }
+                else {
+                    throw new IllegalArgumentException("pjeamount cannot be converted to Double: " + value);
+                }
+
                 // [6.2] puuid 로 JSON 읽어오기 (※ porcess 캐쉬 처리!!>> 처리 속도 증가)
                 Map<String, Object> process = getProcessJsonFromCache(processCache, searchPuuid);
                 // [6.3] process 내부에서 exchanges(=flow 리스트) 가져오기
@@ -70,11 +88,12 @@ public class LCICalculateService {
         }
         // [7] resultMap -> List<CalculateResultDto> 변환
         List<CalculateResultDto> results = new ArrayList<>(resultMap.values());
+        System.out.println(results);
 
         // [7.1] 산출물 DTO 한 줄 추가 (productExchange가 존재할 때만)
         if (productExchange != null) {
             CalculateResultDto productDto = buildProductResultDto(projectEntity, readFileData, productExchange, pjamount);
-            results.add(productDto);  // 맨 뒤에 붙이거나 앞에 넣고 싶으면 add(0, productDto);
+            results.add(productDto);
         }
 
         // [8] 산출물 1 단위(예: 1 kg) 기준으로 환산
@@ -213,8 +232,21 @@ public class LCICalculateService {
         String uname = (String) projectExchangeJson.get("uname");
 
         // [2] 산출물 exchange에 입력된 양 (ex: 750kg)
-        double productAmount = ((Number) productExchange.get("pjeamount")).doubleValue();
-
+        Object value = productExchange.get("pjeamount");
+        double productAmount = 0.0;
+        // 안전한 타입 변환
+        if (value instanceof Double) {
+            productAmount = (Double) value;
+        }
+        else if (value instanceof Number) {
+            productAmount = ((Number) value).doubleValue();
+        }
+        else if (value instanceof String) {
+            productAmount = Double.parseDouble((String) value);
+        }
+        else {
+            throw new IllegalArgumentException("pjeamount cannot be converted to Double: " + value);
+        }
         // [3] 결과 반환에 사용될 dto
         CalculateResultDto dto = new CalculateResultDto();
 
@@ -257,7 +289,7 @@ public class LCICalculateService {
         // [3] 프로젝트 기본정보: projectEntity + projectExchangeJson (필요한 만큼만)
         root.put("pjno", project.getPjno());
         root.put("pjname", project.getPjname());
-        root.put("mno", project.getMemberEntity().getMno());
+        root.put("mno", project.getMno());
 
         // [4] pjamount, uno, uname, pjdesc 등은 projectExchange JSON에서 꺼냄
         root.put("pjamount", ((Number) projectExchangeJson.get("pjamount")).doubleValue());
@@ -298,7 +330,7 @@ public class LCICalculateService {
      * @author OngTK
      */
     private String makeResultFileName(ProjectEntity project) {
-        int cno = project.getMemberEntity().getCompanyEntity().getCno();
+        int cno = memberRepository.getReferenceById(project.getMno()).getCompanyEntity().getCno();
         int pjno = project.getPjno();
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"));
         return cno + "_" + pjno + "_result_" + now;
@@ -306,25 +338,46 @@ public class LCICalculateService {
 
     /**
      * [LCI-02] LCI 결과 조회하기
+     *
      * @author OngTK
      */
-    public Map<String, Object> readLCI( int pjno ){
+    public Map<String, Object> readLCI(int pjno) {
         // [1] pjno로 project_resultfile 테이블에서 가장 최신의 레코드를 찾고, 파일명을 확인
         String fileName = projectResultFileRepository.returnFilename(pjno);
-        if(fileName.isBlank()) return null;
+        if (fileName == null) return null;
         // [2] 파일명으로 파일 찾아오기
-        return fileService.readFile("result",fileName);
+        Map<String, Object> file = fileService.readFile("result", fileName);
+        // [3] results 항목만 가져오기
+        List<Map<String, Object>> results = (List<Map<String, Object>>) file.get("results");
+        // [4] result에서 input과 output을 구별
+        List<Map<String, Object>> inputList = new ArrayList<>();
+        List<Map<String, Object>> outputList = new ArrayList<>();
+
+        for (Map<String, Object> map : results) {
+            if ((boolean) map.get("isInput")) {
+                inputList.add(map);
+            } else {
+                outputList.add(map);
+            }
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("inputList", inputList);
+        result.put("outputList", outputList);
+
+        return result;
+
     } // func end
 
     /**
      * [LCI-03] LCI 결과 존재 여부 확인
+     *
      * @author OngTK
      */
-    public String checkLCI(int pjno){
+    public String checkLCI(int pjno) {
         // [1] pjno로 project_resultfile 테이블에서 가장 최신의 레코드를 찾고, 파일명을 확인
         String fileName = projectResultFileRepository.returnFilename(pjno);
         // [2] 조회 되는게 없으면 null 반환
-        if(fileName.isBlank()) return null;
+        if (fileName.isBlank()) return null;
         // [3] 조회된 String을 반환
         return fileName;
     } // func end
