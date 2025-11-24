@@ -2,7 +2,7 @@ package lceye.controller;
 
 import lceye.model.dto.ProjectDto;
 import lceye.service.ProjectService;
-import lceye.util.SessionToken;
+import lceye.util.aop.SessionToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
