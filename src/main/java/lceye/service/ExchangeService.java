@@ -4,18 +4,16 @@ import lceye.model.dto.ProcessInfoDto;
 import lceye.model.dto.ProjectDto;
 import lceye.model.dto.UnitsDto;
 import lceye.model.repository.ProjectRepository;
+import lceye.util.aop.DistributedLock;
 import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.text.similarity.JaroWinklerSimilarity;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @Transactional
@@ -29,7 +27,6 @@ public class ExchangeService {
     private final UnitsService unitsService;
     private final ProcessInfoService processInfoService;
     private final ProjectRepository projectRepository;
-    private final RedissonClient redissonClient;
 
     /**
      * 투입물·산출물 저장/수정
@@ -39,95 +36,66 @@ public class ExchangeService {
      * @return boolean
      * @author 민성호
      */
-    public boolean saveInfo(Map<String, Object> exchangeList, String token) {
-        // 1. 프로젝트 번호 얻기 : Lock Key 생성을 위해
-        Object pjnoObject = exchangeList.get("pjno");
-        int pjno = 0;
-        if (pjnoObject instanceof Number) {
-            pjno = ((Number) pjnoObject).intValue();
-        } // if end
-        // 2. Lock Key 정의
-        String lockKey = "lock:project:exchange:" + pjno;
-        System.out.println("lockKey = " + lockKey);
-        RLock lock = redissonClient.getLock(lockKey);
-        try {
-            // 3. 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
-            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
-            // 4. 획득에 실패했다면, 메소드 종료
-            if (!available) return false;
-            // 5. 락 획득에 성공했다면, 비지니스 로직 시작
-            System.out.println("exchangeList = " + exchangeList + ", token = " + token);
-            if (!jwtService.validateToken(token)) return false;
-            System.out.println("토큰확인 : " + jwtService.validateToken(token));
-            int cno = jwtService.getCnoFromClaims(token);
-            int mno = jwtService.getMnoFromClaims(token);
+    @DistributedLock(lockKey = "#pjno")
+    public boolean saveInfo(Map<String, Object> exchangeList, String token, int pjno) {
+        System.out.println("exchangeList = " + exchangeList + ", token = " + token);
+        if (!jwtService.validateToken(token)) return false;
+        System.out.println("토큰확인 : " + jwtService.validateToken(token));
+        int cno = jwtService.getCnoFromClaims(token);
+        int mno = jwtService.getMnoFromClaims(token);
 
-            System.out.println("pjno = " + pjno);
-            System.out.println("pjnoObject = " + pjnoObject);
-//        int pjNumber = 0;
-//        if (pjno instanceof Number) {
-//            pjNumber = ((Number) pjno).intValue();
-//        }
-//        System.out.println(pjNumber);
-            ProjectDto pjDto = projectService.findByPjno(pjno);
-            if (pjDto == null) return false;
-            UnitsDto unitsDto = unitsService.findByUno(pjDto.getUno());
-            Object exchange = exchangeList.get("exchanges");
-            if (exchange instanceof List<?> exList) {
-                for (Object inout : exList) {
-                    if (inout instanceof Map io) {
+        System.out.println("pjno = " + pjno);
+        ProjectDto pjDto = projectService.findByPjno(pjno);
+        if (pjDto == null) return false;
+        UnitsDto unitsDto = unitsService.findByUno(pjDto.getUno());
+        Object exchange = exchangeList.get("exchanges");
+        if (exchange instanceof List<?> exList) {
+            for (Object inout : exList) {
+                if (inout instanceof Map io) {
 
-                        if (io.get("pname") != null) {
-                            ProcessInfoDto pcDto = processInfoService.findByPcname(String.valueOf(io.get("pname")));
-                            if(pcDto != null && pcDto.getPcuuid() != null){
-                                io.put("puuid", pcDto.getPcuuid());
-                            }else {
-                                io.put("puuid", null);
-                            } // if end
-                        }
-                    }// if end
-                }// for end
-            }// if end
-            exchangeList.put("pjname", pjDto.getPjname());
-            exchangeList.put("mno", mno);
-            exchangeList.put("pjamount", pjDto.getPjamount());
-            exchangeList.put("uno", pjDto.getUno());
-            exchangeList.put("pjdesc", pjDto.getPjdesc());
-            exchangeList.put("uname", unitsDto.getUnit());
-            LocalDateTime now = LocalDateTime.now();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
-            // 파일 이름 형식 , cno_pjno_type_datetime(20251113_1600)
-            String projectNumber = String.valueOf(pjno);
-            String name = cno + "_" + projectNumber + "_exchange_";
-            String fileName;
-            if (pjDto.getPjfilename() != null && !pjDto.getPjfilename().isEmpty()) { // json 파일명 존재할때
-                Map<String, Object> oldJsonFile = fileUtil.readFile("exchange", pjDto.getPjfilename());
-                System.out.println("oldJsonFile = " + oldJsonFile);
-                exchangeList.put("createdate", oldJsonFile.get("createdate"));
-                exchangeList.put("updatedate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                DateTimeFormatter change = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                String createdate = String.valueOf(oldJsonFile.get("createdate"));
-                LocalDateTime dateTime = LocalDateTime.parse(createdate, change);
-                fileName = name + dateTime.format(formatter);
-            } else {
-                exchangeList.put("createdate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                fileName = name + now.format(formatter);
-            }// if end
-            boolean result = fileUtil.uploadFile("exchange", fileName, exchangeList);
-            System.out.println("result = " + result);
-            if (result) {
-                boolean results = projectService.updatePjfilename(fileName, pjno);
-                System.out.println("results = " + results);
-                if (results) return true;
-            }// if end
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Lock 획득 중 에러 발생");
-        } finally {
-            // 6. 최종족으로 락 해제
-            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            } // if end
-        } // try-catch-finally end
+                    if (io.get("pname") != null) {
+                        ProcessInfoDto pcDto = processInfoService.findByPcname(String.valueOf(io.get("pname")));
+                        if(pcDto != null && pcDto.getPcuuid() != null){
+                            io.put("puuid", pcDto.getPcuuid());
+                        }else {
+                            io.put("puuid", null);
+                        } // if end
+                    }
+                }// if end
+            }// for end
+        }// if end
+        exchangeList.put("pjname", pjDto.getPjname());
+        exchangeList.put("mno", mno);
+        exchangeList.put("pjamount", pjDto.getPjamount());
+        exchangeList.put("uno", pjDto.getUno());
+        exchangeList.put("pjdesc", pjDto.getPjdesc());
+        exchangeList.put("uname", unitsDto.getUnit());
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
+        // 파일 이름 형식 , cno_pjno_type_datetime(20251113_1600)
+        String projectNumber = String.valueOf(pjno);
+        String name = cno + "_" + projectNumber + "_exchange_";
+        String fileName;
+        if (pjDto.getPjfilename() != null && !pjDto.getPjfilename().isEmpty()) { // json 파일명 존재할때
+            Map<String, Object> oldJsonFile = fileUtil.readFile("exchange", pjDto.getPjfilename());
+            System.out.println("oldJsonFile = " + oldJsonFile);
+            exchangeList.put("createdate", oldJsonFile.get("createdate"));
+            exchangeList.put("updatedate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            DateTimeFormatter change = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String createdate = String.valueOf(oldJsonFile.get("createdate"));
+            LocalDateTime dateTime = LocalDateTime.parse(createdate, change);
+            fileName = name + dateTime.format(formatter);
+        } else {
+            exchangeList.put("createdate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            fileName = name + now.format(formatter);
+        }// if end
+        boolean result = fileUtil.uploadFile("exchange", fileName, exchangeList);
+        System.out.println("result = " + result);
+        if (result) {
+            boolean results = projectService.updatePjfilename(fileName, pjno);
+            System.out.println("results = " + results);
+            if (results) return true;
+        }// if end
         return false;
     }// func end
 
@@ -235,37 +203,20 @@ public class ExchangeService {
      * @return boolean
      * @author 민성호
      */
+    @DistributedLock(lockKey = "#pjno")
     public boolean clearIOInfo(String token, int pjno) {
         if (!jwtService.validateToken(token)) return false;
-        // [1] Lock Key 정의
-        String lockKey = "lock:project:exchange:" + pjno;
-        System.out.println("lockKey = " + lockKey);
-        RLock lock = redissonClient.getLock(lockKey);
-        try {
-            // [2] 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
-            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
-            // [3] 락 획득에 실패했다면, 메소드 종료
-            if (!available) return false;
-            // [4] 락 획득에 성공했다면, 비지니스 로직 시작
-            ProjectDto dto = projectService.findByPjno(pjno);
-            System.out.println("dto = " + dto);
-            if (dto != null) {
-                boolean result = fileUtil.deleteFile("exchange", dto.getPjfilename());
-                System.out.println("result = " + result);
-                if (result) {
-                    boolean results = projectService.deletePjfilename(pjno);
-                    if (results) return true;
-                }// if end
+        ProjectDto dto = projectService.findByPjno(pjno);
+        System.out.println("dto = " + dto);
+        if (dto != null) {
+            boolean result = fileUtil.deleteFile("exchange", dto.getPjfilename());
+            System.out.println("result = " + result);
+            if (result) {
+                boolean results = projectService.deletePjfilename(pjno);
+                if (results) return true;
             }// if end
-            return false;
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Lock 획득 중 에러 발생");
-        } finally {
-            // [5] 최종족으로 락 해제
-            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            } // if end
-        } // try-catch-finally end
+        }// if end
+        return false;
     }// func end
 
     /**
@@ -316,52 +267,35 @@ public class ExchangeService {
      * @return List<Map < Strig, Object>>
      * @author OngTK
      */
+    @DistributedLock(lockKey = "#pjno")
     public Map<String, Object> readIOInfo(int pjno) {
-        // [1] Lock Key 정의
-        String lockKey = "lock:project:exchange:" + pjno;
-        System.out.println("lockKey = " + lockKey);
-        RLock lock = redissonClient.getLock(lockKey);
-        try {
-            // [2] 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
-            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
-            // [3] 획득에 실패했다면, 메소드 종료
-            if (!available) return null;
-            // [4] 락 획득에 성공했다면, 비지니스 로직 시작
-            // [5] pjno로 project 테이블에 pjfile이 존재하는지 확인
-            if (projectRepository.existsById(pjno)) {
-                // [6] 존재하면 파일명을 받아옴
-                String filename = projectRepository.findById(pjno).get().getPjfilename();
-                // [7] filename으로 json 파일 불러오기
-                Map<String, Object> inOutInfo = fileUtil.readFile("exchange", filename);
-                // [8] exchanges list 가져오기
-                List<Map<String, Object>> exchanges = (List<Map<String, Object>>) inOutInfo.get("exchanges");
-                // [9] exchanges 에서 input과 output 리스트를 각각 만들기
-                List<Map<String, Object>> InputList = new ArrayList<>();
-                List<Map<String, Object>> OutputList = new ArrayList<>();
-                for (Map<String, Object> map : exchanges) {
-                    System.out.println(map);
-                    if ((boolean) map.get("isInput")) {
-                        System.out.println(true);
-                        InputList.add(map);
-                    } else {
-                        OutputList.add(map);
-                    } // if end
-                } // for end
-                // [10] 결과 반환
-                Map<String, Object> result = new HashMap<>();
-                result.put("inputList", InputList);
-                result.put("outputList", OutputList);
+        // [1] pjno로 project 테이블에 pjfile이 존재하는지 확인
+        if (projectRepository.existsById(pjno)) {
+            // [2] 존재하면 파일명을 받아옴
+            String filename = projectRepository.findById(pjno).get().getPjfilename();
+            // [3] filename으로 json 파일 불러오기
+            Map<String, Object> inOutInfo = fileUtil.readFile("exchange", filename);
+            // [4] exchanges list 가져오기
+            List<Map<String, Object>> exchanges = (List<Map<String, Object>>) inOutInfo.get("exchanges");
+            // [5] exchanges 에서 input과 output 리스트를 각각 만들기
+            List<Map<String, Object>> InputList = new ArrayList<>();
+            List<Map<String, Object>> OutputList = new ArrayList<>();
+            for (Map<String, Object> map : exchanges) {
+                System.out.println(map);
+                if ((boolean) map.get("isInput")) {
+                    System.out.println(true);
+                    InputList.add(map);
+                } else {
+                    OutputList.add(map);
+                } // if end
+            } // for end
+            // [6] 결과 반환
+            Map<String, Object> result = new HashMap<>();
+            result.put("inputList", InputList);
+            result.put("outputList", OutputList);
 
-                return result;
-            } // if end
-            return null;
-        } catch (InterruptedException e){
-            throw new RuntimeException("Lock 획득 중 에러 발생");
-        } finally {
-            // [11] 최종적으로 락 해제
-            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            } // if end
-        } // try-catch-finally end
+            return result;
+        } // if end
+        return null;
     } // func end
 }// class end

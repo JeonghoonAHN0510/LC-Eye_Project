@@ -112,7 +112,8 @@ public class ProjectController {
                                            @RequestBody ProjectDto projectDto){
         ProjectDto result = null;
         if (token != null){
-            result = projectService.updateProject(token, projectDto);
+            int pjno = projectDto.getPjno();
+            result = projectService.updateProject(token, projectDto, pjno);
         } // if end
         if(result == null){
             return ResponseEntity.status(403).body("잘못된 요청입니다.");

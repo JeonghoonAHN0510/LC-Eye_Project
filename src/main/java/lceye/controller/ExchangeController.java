@@ -40,7 +40,12 @@ public class ExchangeController {
                                         @RequestBody Map<String,Object> map){
         System.out.println("map : " + map);
         if (token != null){
-            return ResponseEntity.ok(exchangeService.saveInfo(map,token));
+            Object pjnoObject = map.get("pjno");
+            int pjno = 0;
+            if (pjnoObject instanceof Number) {
+                pjno = ((Number) pjnoObject).intValue();
+            } // if end
+            return ResponseEntity.ok(exchangeService.saveInfo(map,token, pjno));
         } else {
             return ResponseEntity.status(401).body(null);
         } // if end

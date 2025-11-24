@@ -2,8 +2,6 @@ package lceye.service;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +20,7 @@ import lceye.model.dto.ExcelProjectDto;
 import lceye.model.mapper.ExcelProjectMapper;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
+import lceye.util.aop.DistributedLock;
 import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
 
@@ -33,7 +32,6 @@ public class ExcelService {
     private final JwtService jwtService;
     private final ExcelProjectMapper excelProjectMapper;
     private final ProjectRepository projectRepository;
-    private final RedissonClient redissonClient;
     private final FileUtil fileUtil;
     private final ProjectResultFileRepository projectResultFileRepository;
 
@@ -45,106 +43,96 @@ public class ExcelService {
      * @param response 엑셀 다운로드용 응답
      * @author OngTK
      */
+    @DistributedLock(lockKey = "#pjno")
     public boolean downloadExcel(String token, int pjno, HttpServletResponse response) {
         System.out.println("ExcelService.downloadExcel");
         System.out.println("token = " + token + ", pjno = " + pjno + ", response = " + response);
-        // [1] Lock Key 정의
-        String lockKey = "lock:project:exchange:" + pjno;
-        System.out.println("lockKey = " + lockKey);
-        RLock lock = redissonClient.getLock(lockKey);
         try {
-            // [2] 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
-            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
-            // [3] 락 획득에 실패했다면, 메소드 종료
-            if (!available) return false;
-            // [4] 락 획득에 성공했다면, 비지니스 로직 시작
-            // [5] 로그인 토큰 확인
-            // [5.1] 로그인 토큰이 비어있으면 false
-            if (!jwtService.validateToken(token)) return false;
-            // [5.2] 토큰이 존재한다면, 토큰에서 mno(작성자) 정보 추출
-            int mno = jwtService.getMnoFromClaims(token);
-            int cno = jwtService.getCnoFromClaims(token);
-            String mrole = jwtService.getRoleFromClaims(token);
-            System.out.println("[Excel-01 Token Check] " + mno + " / " + cno + " / " + mrole);
-            // [6] pjno 유효성 검사·존재여부 확인
-            // [6.1] pjno 유효성 검사
-            if (pjno == 0) return false;
-            if (!projectRepository.existsById(pjno)) return false;
-            // [6.2] pjno가 존재하면 cno와 pjno 기반 project 정보 조회
-            ExcelProjectDto excelProjectDto = new ExcelProjectDto();
-            // [6.3] mrole에 따른 서로 다른 조회
-            if (mrole.equals("WORKER")) {
-                // [6.3.1] WORKER 는 본인 mno에 한정하여 조회되어야 함
-                excelProjectDto = excelProjectMapper.readByMnoAndPjno(mno, pjno);
-                System.out.println(excelProjectDto);
-            } else if (mrole.equals("ADMIN") || mrole.equals("MANAGER")) {
-                // [6.3.2] ADMIN, MANAGER 는 본인과 작성자가 아니더라도 cno가 일치하면 조회 가능
-                excelProjectDto = excelProjectMapper.readByCnoAndPjno(cno, pjno);
-                System.out.println(excelProjectDto);
-            }
+            System.out.println("지연 시작");
+            TimeUnit.SECONDS.sleep(5);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 
-            // [7] pjno 존재시 excel 생성 및 첫번째 시트 작성
-            // [7.1] excelProjectDto가 null 이면 false 리턴
-            if (excelProjectDto == null) return false;
-            // [7.2] Excel 작성에 필요한 객체 생성 [helper-01 실행]
-            try (Workbook workbook = createExcelFile(excelProjectDto, response)) {
-                // [7.3] 첫번째 시트 작성 [helper-02 실행]
-                writeProjectInfo(workbook, excelProjectDto);
+        // [1] 로그인 토큰 확인
+        // [1.1] 로그인 토큰이 비어있으면 false
+        if (!jwtService.validateToken(token)) return false;
+        // [1.2] 토큰이 존재한다면, 토큰에서 mno(작성자) 정보 추출
+        int mno = jwtService.getMnoFromClaims(token);
+        int cno = jwtService.getCnoFromClaims(token);
+        String mrole = jwtService.getRoleFromClaims(token);
+        System.out.println("[Excel-01 Token Check] " + mno + " / " + cno + " / " + mrole);
+        // [2] pjno 유효성 검사·존재여부 확인
+        // [2.1] pjno 유효성 검사
+        if (pjno == 0) return false;
+        if (!projectRepository.existsById(pjno)) return false;
+        // [2.2] pjno가 존재하면 cno와 pjno 기반 project 정보 조회
+        ExcelProjectDto excelProjectDto = new ExcelProjectDto();
+        // [2.3] mrole에 따른 서로 다른 조회
+        if (mrole.equals("WORKER")) {
+            // [2.3.1] WORKER 는 본인 mno에 한정하여 조회되어야 함
+            excelProjectDto = excelProjectMapper.readByMnoAndPjno(mno, pjno);
+            System.out.println(excelProjectDto);
+        } else if (mrole.equals("ADMIN") || mrole.equals("MANAGER")) {
+            // [2.3.2] ADMIN, MANAGER 는 본인과 작성자가 아니더라도 cno가 일치하면 조회 가능
+            excelProjectDto = excelProjectMapper.readByCnoAndPjno(cno, pjno);
+            System.out.println(excelProjectDto);
+        }
 
-                // [8] pjno로 project 테이블의 pjfilename 컬럼 존재여부 확인
-                String pjfilename = excelProjectDto.getPjfilename();
-                if (pjfilename == null || pjfilename.isEmpty() || pjfilename.isBlank()) {
-                    // [8.1] pjfilename 이 empty면 현재 상태의 엑셀 출력
-                    workbook.write(response.getOutputStream());
-                    response.flushBuffer();
-                    return true;
-                } else {
-                    // [8.2] pjfilename 이 있으면, s3에서 데이터를 가져오고, 엑셀을 작성
-                    Map<String, Object> projectJson = fileUtil.readFile("exchange", pjfilename);
-                    List<Map<String, Object>> exchanges = (List<Map<String, Object>>) projectJson.get("exchanges");
-                    writeProjectExchange(workbook, exchanges);
-                }
+        // [3] pjno 존재시 excel 생성 및 첫번째 시트 작성
+        // [3.1] excelProjectDto가 null 이면 false 리턴
+        if (excelProjectDto == null) return false;
+        // [3.2] Excel 작성에 필요한 객체 생성 [helper-01 실행]
+        try (Workbook workbook = createExcelFile(excelProjectDto, response)) {
+            // [3.3] 첫번째 시트 작성 [helper-02 실행]
+            writeProjectInfo(workbook, excelProjectDto);
 
-                // [9] pjno로 projcetResultfile 테이블의 가장 최근의 레코드 존재여부 확인
-                String projectResultFileName = projectResultFileRepository.returnFilename(pjno);
-                // [9.1] 조회되는 파일이 없다면, 현재 상태의 엑셀 출력
-                if (projectResultFileName == null || projectResultFileName.isEmpty() || projectResultFileName.isBlank()) {
-                    workbook.write(response.getOutputStream());
-                    response.flushBuffer();
-                    return true;
-                }
-                // [9.2] 조회되는 파일이 있다면, prfname 컬럼의 값으로 s3에서 데이터를 가져오고, 엑셀을 작성
-                Map<String, Object> resultJson = fileUtil.readFile("result", projectResultFileName);
-
-                // [9.3] inputList와 outputList 구별
-                List<Map<String, Object>> inputList = new ArrayList<>();
-                List<Map<String, Object>> outputList = new ArrayList<>();
-                List<Map<String, Object>> results = (List<Map<String, Object>>) resultJson.get("results");
-                for (Map<String, Object> map : results) {
-                    if ((boolean) map.get("isInput")) {
-                        inputList.add(map);
-                    } else {
-                        outputList.add(map);
-                    }
-                }
-                writeProjectResult(workbook, inputList, outputList);
-
-                // [10] 최종 결과 반환
+            // [4] pjno로 project 테이블의 pjfilename 컬럼 존재여부 확인
+            String pjfilename = excelProjectDto.getPjfilename();
+            if (pjfilename == null || pjfilename.isEmpty() || pjfilename.isBlank()) {
+                // [4.1] pjfilename 이 empty면 현재 상태의 엑셀 출력
                 workbook.write(response.getOutputStream());
                 response.flushBuffer();
                 return true;
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            } // try-catch end
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Lock 획득 중 에러 발생");
-        } finally {
-            // [11] 최종족으로 락 해제
-            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            } // if end
-        } // try-catch-finally end
+            } else {
+                // [4.2] pjfilename 이 있으면, s3에서 데이터를 가져오고, 엑셀을 작성
+                Map<String, Object> projectJson = fileUtil.readFile("exchange", pjfilename);
+                List<Map<String, Object>> exchanges = (List<Map<String, Object>>) projectJson.get("exchanges");
+                writeProjectExchange(workbook, exchanges);
+            }
+
+            // [5] pjno로 projcetResultfile 테이블의 가장 최근의 레코드 존재여부 확인
+            String projectResultFileName = projectResultFileRepository.returnFilename(pjno);
+            // [5.1] 조회되는 파일이 없다면, 현재 상태의 엑셀 출력
+            if (projectResultFileName == null || projectResultFileName.isEmpty() || projectResultFileName.isBlank()) {
+                workbook.write(response.getOutputStream());
+                response.flushBuffer();
+                return true;
+            }
+            // [5.2] 조회되는 파일이 있다면, prfname 컬럼의 값으로 s3에서 데이터를 가져오고, 엑셀을 작성
+            Map<String, Object> resultJson = fileUtil.readFile("result", projectResultFileName);
+
+            // [5.3] inputList와 outputList 구별
+            List<Map<String, Object>> inputList = new ArrayList<>();
+            List<Map<String, Object>> outputList = new ArrayList<>();
+            List<Map<String, Object>> results = (List<Map<String, Object>>) resultJson.get("results");
+            for (Map<String, Object> map : results) {
+                if ((boolean) map.get("isInput")) {
+                    inputList.add(map);
+                } else {
+                    outputList.add(map);
+                }
+            }
+            writeProjectResult(workbook, inputList, outputList);
+
+            // [6] 최종 결과 반환
+            workbook.write(response.getOutputStream());
+            response.flushBuffer();
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        } // try-catch end
     } // func end
 
 
