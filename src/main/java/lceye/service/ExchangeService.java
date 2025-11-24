@@ -184,6 +184,7 @@ public class ExchangeService {
      * @author 민성호
      */
     public Map<String, Set<String>> autoMatchPjno(List<String> clientInput, String token) {
+
         if (!jwtService.validateToken(token)) return null;
         int mno = jwtService.getMnoFromClaims(token);
         List<ProjectDto> projectDtos = projectService.findByMno(mno);
@@ -236,17 +237,35 @@ public class ExchangeService {
      */
     public boolean clearIOInfo(String token, int pjno) {
         if (!jwtService.validateToken(token)) return false;
-        ProjectDto dto = projectService.findByPjno(pjno);
-        System.out.println("dto = " + dto);
-        if (dto != null) {
-            boolean result = fileUtil.deleteFile("exchange", dto.getPjfilename());
-            System.out.println("result = " + result);
-            if (result) {
-                boolean results = projectService.deletePjfilename(pjno);
-                if (results) return true;
+        // [1] Lock Key 정의
+        String lockKey = "lock:project:exchange:" + pjno;
+        System.out.println("lockKey = " + lockKey);
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            // [2] 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
+            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
+            // [3] 락 획득에 실패했다면, 메소드 종료
+            if (!available) return false;
+            // [4] 락 획득에 성공했다면, 비지니스 로직 시작
+            ProjectDto dto = projectService.findByPjno(pjno);
+            System.out.println("dto = " + dto);
+            if (dto != null) {
+                boolean result = fileUtil.deleteFile("exchange", dto.getPjfilename());
+                System.out.println("result = " + result);
+                if (result) {
+                    boolean results = projectService.deletePjfilename(pjno);
+                    if (results) return true;
+                }// if end
             }// if end
-        }// if end
-        return false;
+            return false;
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Lock 획득 중 에러 발생");
+        } finally {
+            // [5] 최종족으로 락 해제
+            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            } // if end
+        } // try-catch-finally end
     }// func end
 
     /**
@@ -298,34 +317,51 @@ public class ExchangeService {
      * @author OngTK
      */
     public Map<String, Object> readIOInfo(int pjno) {
-        // [1] pjno로 project 테이블에 pjfile이 존재하는지 확인
-        if (projectRepository.existsById(pjno)) {
-            // [2] 존재하면 파일명을 받아옴
-            String filename = projectRepository.findById(pjno).get().getPjfilename();
-            // [3] filename으로 json 파일 불러오기
-            Map<String, Object> inOutInfo = fileUtil.readFile("exchange", filename);
-            // [4] exchanges list 가져오기
-            List<Map<String, Object>> exchanges = (List<Map<String, Object>>) inOutInfo.get("exchanges");
-            // [5] exchanges 에서 input과 output 리스트를 각각 만들기
-            List<Map<String, Object>> InputList = new ArrayList<>();
-            List<Map<String, Object>> OutputList = new ArrayList<>();
-            for (Map<String, Object> map : exchanges) {
-                System.out.println(map);
-                if ((boolean) map.get("isInput")) {
-                    System.out.println(true);
-                    InputList.add(map);
-                } else {
-                    OutputList.add(map);
-                }
-            }
-            // [6] 결과 반환
-            Map<String, Object> result = new HashMap<>();
-            result.put("inputList", InputList);
-            result.put("outputList", OutputList);
+        // [1] Lock Key 정의
+        String lockKey = "lock:project:exchange:" + pjno;
+        System.out.println("lockKey = " + lockKey);
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            // [2] 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
+            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
+            // [3] 획득에 실패했다면, 메소드 종료
+            if (!available) return null;
+            // [4] 락 획득에 성공했다면, 비지니스 로직 시작
+            // [5] pjno로 project 테이블에 pjfile이 존재하는지 확인
+            if (projectRepository.existsById(pjno)) {
+                // [6] 존재하면 파일명을 받아옴
+                String filename = projectRepository.findById(pjno).get().getPjfilename();
+                // [7] filename으로 json 파일 불러오기
+                Map<String, Object> inOutInfo = fileUtil.readFile("exchange", filename);
+                // [8] exchanges list 가져오기
+                List<Map<String, Object>> exchanges = (List<Map<String, Object>>) inOutInfo.get("exchanges");
+                // [9] exchanges 에서 input과 output 리스트를 각각 만들기
+                List<Map<String, Object>> InputList = new ArrayList<>();
+                List<Map<String, Object>> OutputList = new ArrayList<>();
+                for (Map<String, Object> map : exchanges) {
+                    System.out.println(map);
+                    if ((boolean) map.get("isInput")) {
+                        System.out.println(true);
+                        InputList.add(map);
+                    } else {
+                        OutputList.add(map);
+                    } // if end
+                } // for end
+                // [10] 결과 반환
+                Map<String, Object> result = new HashMap<>();
+                result.put("inputList", InputList);
+                result.put("outputList", OutputList);
 
-            return result;
-        }
-        return null;
-    } // fucn end
-
+                return result;
+            } // if end
+            return null;
+        } catch (InterruptedException e){
+            throw new RuntimeException("Lock 획득 중 에러 발생");
+        } finally {
+            // [11] 최종적으로 락 해제
+            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            } // if end
+        } // try-catch-finally end
+    } // func end
 }// class end

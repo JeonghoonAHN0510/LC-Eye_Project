@@ -365,30 +365,47 @@ public class LCICalculateService {
      * @author OngTK
      */
     public Map<String, Object> readLCI(int pjno) {
-        // [1] pjno로 project_resultfile 테이블에서 가장 최신의 레코드를 찾고, 파일명을 확인
-        String fileName = projectResultFileRepository.returnFilename(pjno);
-        if (fileName == null) return null;
-        // [2] 파일명으로 파일 찾아오기
-        Map<String, Object> file = fileUtil.readFile("result", fileName);
-        // [3] results 항목만 가져오기
-        List<Map<String, Object>> results = (List<Map<String, Object>>) file.get("results");
-        // [4] result에서 input과 output을 구별
-        List<Map<String, Object>> inputList = new ArrayList<>();
-        List<Map<String, Object>> outputList = new ArrayList<>();
+        // [1] Lock Key 정의
+        String lockKey = "lock:project:exchange:" + pjno;
+        System.out.println("lockKey = " + lockKey);
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            // [2] 락 획득 시도 : 최대 10초 대기 + 5초 후 자동 해제
+            boolean available = lock.tryLock(10, 5, TimeUnit.SECONDS);
+            // [3] 획득에 실패했다면, 메소드 종료
+            if (!available) return null;
+            // [4] 락 획득에 성공했다면, 비지니스 로직 시작
+            // [5] pjno로 project_resultfile 테이블에서 가장 최신의 레코드를 찾고, 파일명을 확인
+            String fileName = projectResultFileRepository.returnFilename(pjno);
+            if (fileName == null) return null;
+            // [6] 파일명으로 파일 찾아오기
+            Map<String, Object> file = fileUtil.readFile("result", fileName);
+            // [7] results 항목만 가져오기
+            List<Map<String, Object>> results = (List<Map<String, Object>>) file.get("results");
+            // [8] result에서 input과 output을 구별
+            List<Map<String, Object>> inputList = new ArrayList<>();
+            List<Map<String, Object>> outputList = new ArrayList<>();
 
-        for (Map<String, Object> map : results) {
-            if ((boolean) map.get("isInput")) {
-                inputList.add(map);
-            } else {
-                outputList.add(map);
+            for (Map<String, Object> map : results) {
+                if ((boolean) map.get("isInput")) {
+                    inputList.add(map);
+                } else {
+                    outputList.add(map);
+                }
             }
-        }
-        Map<String, Object> result = new HashMap<>();
-        result.put("inputList", inputList);
-        result.put("outputList", outputList);
+            Map<String, Object> result = new HashMap<>();
+            result.put("inputList", inputList);
+            result.put("outputList", outputList);
 
-        return result;
-
+            return result;
+        } catch (InterruptedException e){
+            throw new RuntimeException("Lock 획득 중 에러 발생");
+        } finally {
+            // [9] 최종적으로 락 해제
+            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            } // if end
+        } // try-catch-finally end
     } // func end
 
     /**
