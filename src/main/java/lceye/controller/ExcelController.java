@@ -6,10 +6,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import lceye.service.ExcelService;
+import lceye.util.SessionToken;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -21,19 +20,15 @@ public class ExcelController {
 
     /**
      *  [Excel-01] 엑셀 다운로드
-     * @param request session에서 token 확인
+     * @param token session에서 token 추출 (by AOP)
      * @param pjno 프로젝트 번호
      * @param response excel 다운로드를 위한 응답
      * @author OngTK
      */
     @GetMapping("/download")
-    public ResponseEntity<?> downloadExcel(HttpServletRequest request, @RequestParam int pjno, HttpServletResponse response){
-        // [1] Sesion에서 토큰 추출
-        HttpSession session = request.getSession(false);
-        String token = null;
-        if (session != null){
-            token = (String) session.getAttribute("loginMember");
-        }
+    public ResponseEntity<?> downloadExcel(@SessionToken String token,
+                                           @RequestParam int pjno,
+                                           HttpServletResponse response){
         // [2] service에 엑셀 출력 요청
         boolean result = excelService.downloadExcel(token, pjno, response);
         

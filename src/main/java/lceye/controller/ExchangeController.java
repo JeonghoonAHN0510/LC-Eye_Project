@@ -1,9 +1,8 @@
 package lceye.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import lceye.service.ExchangeService;
 import lceye.service.TranslationService;
+import lceye.util.SessionToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,19 +30,14 @@ public class ExchangeController {
     /**
      * 투입물·산출물 저장/수정
      *
-     * @param request 요청한 회원의 HTTP 요청 정보
+     * @param token session에서 token 추출 (by AOP)
      * @param map 투입물·산출물 정보
      * @return boolean
      * @author 민성호
      */
     @PostMapping
-    public ResponseEntity<?> saveIOInfo(HttpServletRequest request,
+    public ResponseEntity<?> saveIOInfo(@SessionToken String token,
                                         @RequestBody Map<String,Object> map){
-        HttpSession session = request.getSession(false);
-        String token = null;
-        if (session != null){
-            token = (String) session.getAttribute("loginMember");
-        } // if end
         System.out.println("map : " + map);
         if (token != null){
             return ResponseEntity.ok(exchangeService.saveInfo(map,token));
@@ -55,19 +49,14 @@ public class ExchangeController {
     /**
      * 투입물·산출물 프로세스와 자동매칭
      *
-     * @param request 요청한 회원의 HTTP 요청 정보
+     * @param token session에서 token 추출 (by AOP)
      * @param inputList 클라이언트가 입력한 투입물·산출물
      * @return Map<String,Object>
      * @author 민성호
      */
     @PostMapping("/auto")
-    public ResponseEntity<?> matchIO(HttpServletRequest request,
+    public ResponseEntity<?> matchIO(@SessionToken String token,
                                      @RequestBody List<String> inputList){
-        HttpSession session = request.getSession(false);
-        String token = null;
-        if (session != null){
-            token = (String) session.getAttribute("loginMember");
-        } // if end
         if (token != null){
             Map<String, Set<String>> pjnoMap = exchangeService.autoMatchPjno(inputList,token);
             if (pjnoMap != null && !pjnoMap.isEmpty()){
@@ -83,19 +72,14 @@ public class ExchangeController {
     /**
      * 프로젝트 초기화
      *
-     * @param request 요청한 회원의 HTTP 요청 정보
+     * @param token session에서 token 추출 (by AOP)
      * @param pjno 삭제할 프로젝트번호
      * @return boolean
      * @author 민성호
      */
     @DeleteMapping
-    public ResponseEntity<?> clearIOInfo(HttpServletRequest request,
+    public ResponseEntity<?> clearIOInfo(@SessionToken String token,
                                          @RequestParam int pjno){
-        HttpSession session = request.getSession(false);
-        String token = null;
-        if (session != null){
-            token = (String) session.getAttribute("loginMember");
-        } // if end
         if (token != null){
             return ResponseEntity.ok(exchangeService.clearIOInfo(token,pjno));
         } else {
