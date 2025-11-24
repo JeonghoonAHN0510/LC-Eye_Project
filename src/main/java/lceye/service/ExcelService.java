@@ -13,7 +13,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lceye.model.dto.ExcelProjectDto;
@@ -47,13 +46,6 @@ public class ExcelService {
     public boolean downloadExcel(String token, int pjno, HttpServletResponse response) {
         System.out.println("ExcelService.downloadExcel");
         System.out.println("token = " + token + ", pjno = " + pjno + ", response = " + response);
-        try {
-            System.out.println("지연 시작");
-            TimeUnit.SECONDS.sleep(5);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
         // [1] 로그인 토큰 확인
         // [1.1] 로그인 토큰이 비어있으면 false
         if (!jwtService.validateToken(token)) return false;
