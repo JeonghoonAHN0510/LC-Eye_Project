@@ -5,6 +5,7 @@ import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.ProjectResultFileEntity;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
+import lceye.util.FileUtil;
 import lombok.RequiredArgsConstructor;
 
 import org.redisson.api.RLock;
@@ -25,7 +26,7 @@ public class LCICalculateService {
     private final ProjectRepository projectRepository;
     private final RedissonClient redissonClient;
     private final JwtService jwtService;
-    private final FileService fileService;
+    private final FileUtil fileUtil;
     private final ProjectResultFileRepository projectResultFileRepository;
 
     /**
@@ -46,7 +47,7 @@ public class LCICalculateService {
             ProjectEntity projectEntity = projectRepository.getReferenceById(pjno);
             String projectExchangeFileName = projectEntity.getPjfilename();
             // [6] projectExchangeFileName 의 json 파일을 찾음 + 읽음 // json 파일 읽힘 확인
-            Map<String, Object> readFileData = fileService.readFile("exchange", projectExchangeFileName);
+            Map<String, Object> readFileData = fileUtil.readFile("exchange", projectExchangeFileName);
             // [7] processExchanges 를 리스트로 꺼냄
             List<Map<String, Object>> processExchanges = (List<Map<String, Object>>) readFileData.get("exchanges");
             double pjamount = (double) readFileData.get("pjamount");
@@ -125,7 +126,7 @@ public class LCICalculateService {
             int cno = jwtService.getCnoFromClaims(token);
             String resultFileName = makeResultFileName(projectEntity, cno); // cno_pjno_result_yyyyMMdd_HHmm.json
             // [15] 파일 저장하기 ( type, 파일명 ,JSON으로 변환할 데이터)
-            fileService.writeFile("result", resultFileName, resultJson);
+            fileUtil.uploadFile("result", resultFileName, resultJson);
 
             // [16] resultfile 매핑 테이블 결과 저장
             ProjectResultFileEntity projectResultFileEntity = ProjectResultFileEntity.builder()
@@ -175,7 +176,7 @@ public class LCICalculateService {
         }
         // [2] 캐쉬에 존재하지 않는다면
         // puuid에 해당하는 프로세스 JSON 조회
-        Map<String, Object> process = fileService.searchProcessJson(puuid);
+        Map<String, Object> process = fileUtil.searchProcessJson(puuid);
         // 프로세스 캐쉬에 해댱 uuid와 프로세스 정보를 Map 형태로 저장
         processCache.put(puuid, process);
         // 해당 프로세스를 반환
@@ -368,7 +369,7 @@ public class LCICalculateService {
         String fileName = projectResultFileRepository.returnFilename(pjno);
         if (fileName == null) return null;
         // [2] 파일명으로 파일 찾아오기
-        Map<String, Object> file = fileService.readFile("result", fileName);
+        Map<String, Object> file = fileUtil.readFile("result", fileName);
         // [3] results 항목만 가져오기
         List<Map<String, Object>> results = (List<Map<String, Object>>) file.get("results");
         // [4] result에서 input과 output을 구별

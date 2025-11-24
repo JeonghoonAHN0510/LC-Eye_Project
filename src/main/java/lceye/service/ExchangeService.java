@@ -4,6 +4,7 @@ import lceye.model.dto.ProcessInfoDto;
 import lceye.model.dto.ProjectDto;
 import lceye.model.dto.UnitsDto;
 import lceye.model.repository.ProjectRepository;
+import lceye.util.FileUtil;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.text.similarity.JaroWinklerSimilarity;
 import org.redisson.api.RLock;
@@ -21,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class ExchangeService {
 
-    private final FileService fileService;
+    private final FileUtil fileUtil;
     private final JwtService jwtService;
     private final ProjectService projectService;
     private final TranslationService translationService;
@@ -100,7 +101,7 @@ public class ExchangeService {
             String name = cno + "_" + projectNumber + "_exchange_";
             String fileName;
             if (pjDto.getPjfilename() != null && !pjDto.getPjfilename().isEmpty()) { // json 파일명 존재할때
-                Map<String, Object> oldJsonFile = fileService.readFile("exchange", pjDto.getPjfilename());
+                Map<String, Object> oldJsonFile = fileUtil.readFile("exchange", pjDto.getPjfilename());
                 System.out.println("oldJsonFile = " + oldJsonFile);
                 exchangeList.put("createdate", oldJsonFile.get("createdate"));
                 exchangeList.put("updatedate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
@@ -112,7 +113,7 @@ public class ExchangeService {
                 exchangeList.put("createdate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
                 fileName = name + now.format(formatter);
             }// if end
-            boolean result = fileService.writeFile("exchange", fileName, exchangeList);
+            boolean result = fileUtil.uploadFile("exchange", fileName, exchangeList);
             System.out.println("result = " + result);
             if (result) {
                 boolean results = projectService.updatePjfilename(fileName, pjno);
@@ -145,7 +146,7 @@ public class ExchangeService {
         Set<String> inputSet = new HashSet<>(clientInput);
         Map<String, Set<String>> requestMap = new HashMap<>();
         for (String company : companyFileNames) {
-            List<Map<String, Object>> list = fileService.filterFile(company);
+            List<Map<String, Object>> list = fileUtil.searchFile(company);
             for (Map<String, Object> map : list) {
                 Object obj = map.get("exchanges");
                 if (obj instanceof List<?> rawList) {
@@ -190,7 +191,7 @@ public class ExchangeService {
         Map<String, Set<String>> requestMap = new HashMap<>();
         List<String> pjnoList = projectDtos.stream().map(ProjectDto::getPjfilename).toList();
         for (String fileName : pjnoList) {
-            List<Map<String, Object>> list = fileService.filterFile(fileName);
+            List<Map<String, Object>> list = fileUtil.searchFile(fileName);
             System.out.println("list = " + list);
             for (Map<String, Object> map : list) {
                 Object obj = map.get("exchanges");
@@ -238,7 +239,7 @@ public class ExchangeService {
         ProjectDto dto = projectService.findByPjno(pjno);
         System.out.println("dto = " + dto);
         if (dto != null) {
-            boolean result = fileService.deleteFile(dto.getPjfilename(), "exchange");
+            boolean result = fileUtil.deleteFile("exchange", dto.getPjfilename());
             System.out.println("result = " + result);
             if (result) {
                 boolean results = projectService.deletePjfilename(pjno);
@@ -302,7 +303,7 @@ public class ExchangeService {
             // [2] 존재하면 파일명을 받아옴
             String filename = projectRepository.findById(pjno).get().getPjfilename();
             // [3] filename으로 json 파일 불러오기
-            Map<String, Object> inOutInfo = fileService.readFile("exchange", filename);
+            Map<String, Object> inOutInfo = fileUtil.readFile("exchange", filename);
             // [4] exchanges list 가져오기
             List<Map<String, Object>> exchanges = (List<Map<String, Object>>) inOutInfo.get("exchanges");
             // [5] exchanges 에서 input과 output 리스트를 각각 만들기

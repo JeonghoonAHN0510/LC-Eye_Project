@@ -1,6 +1,7 @@
-package lceye.service;
+package lceye.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -8,7 +9,8 @@ import java.io.FilenameFilter;
 import java.util.*;
 
 @Service
-public class FileService {
+@Deprecated
+public class Unused_FileService {
 
     private static final String path = "./src/main/resources/json/";
 

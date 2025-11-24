@@ -21,7 +21,9 @@ public interface ProjectMapper {
 
     /**
      * [PJ-02-01] 프로젝트 전체 조회
+     * <p>
      * 검색 기준 : mno 기반 전체 조회
+     * @author OngTK
      */
     @Select("""
             select p.*, m.mname from project p join member m on p.mno = m.mno where p.mno = #{mno};
@@ -30,12 +32,13 @@ public interface ProjectMapper {
 
     /**
      * [PJ-02-02] 프로젝트 전체 조회
+     * <p>
      * 검색 기준 : cno
+     * @author OngTK
      */
     @Select("""
             select p.*, m.mname from project p join member m on p.mno = m.mno where m.cno= #{cno};
             """)
     List<ProjectDto> readByCno(int cno);
-
 
 }// interface end
