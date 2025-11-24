@@ -5,7 +5,7 @@ import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.ProjectResultFileEntity;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
-import lceye.util.FileUtil;
+import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
 
 import org.redisson.api.RLock;

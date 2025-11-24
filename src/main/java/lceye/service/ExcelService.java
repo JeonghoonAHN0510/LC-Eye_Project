@@ -22,7 +22,7 @@ import lceye.model.dto.ExcelProjectDto;
 import lceye.model.mapper.ExcelProjectMapper;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
-import lceye.util.FileUtil;
+import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
 
 @Service
