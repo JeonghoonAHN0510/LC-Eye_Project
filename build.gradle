@@ -40,33 +40,29 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     // [7] NoSQL REDIS
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    // [8] 비크립트( 암호화 )
-    implementation 'org.springframework.security:spring-security-crypto:6.4.4'
-    // [9] JPA
+    // [8] JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    // [10] JWT
+    // [9] JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
-    // [11] Google 번역 API
-    implementation 'com.google.cloud:google-cloud-translate:2.77.0'
-    // [12] DeepL 번역 API
-    implementation "com.deepl.api:deepl-java:1.12.0"
-    // [13] Apache Commons Text(유사도 측정 라이브러리)
+    // [10] Apache Commons Text(유사도 측정 라이브러리)
     implementation 'org.apache.commons:commons-text:1.11.0'
-    // [14] Jackson 기본 ObjectMapper의 localDateTime 직렬화 해결을 위한 라이브러리
+    // [11] Jackson 기본 ObjectMapper의 localDateTime 직렬화 해결을 위한 라이브러리
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
-    // [15] Redis 통신
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    // [16] Redisson
+    // [12] Redisson
     implementation 'org.redisson:redisson-spring-boot-starter:3.52.0'
-    // [17] Redis Session
+    // [13] Redis Session
     implementation 'org.springframework.session:spring-session-data-redis'
-    // [18] AWS S3
+    // [14] AWS S3
     implementation 'org.springframework.cloud:spring-cloud-starter-aws:2.2.6.RELEASE'
-    // [19] Apache POI (마이크로소프트 오피스 InOut 처리 라이브러리)
+    // [15] Apache POI (마이크로소프트 오피스 InOut 처리 라이브러리)
     implementation 'org.apache.poi:poi:5.5.0'
     implementation 'org.apache.poi:poi-ooxml:5.5.0'
+    // [16] WebSocket
+    implementation 'org.springframework:spring-websocket'
+    // [17] WebClient
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
 }
 
 tasks.named('test') {

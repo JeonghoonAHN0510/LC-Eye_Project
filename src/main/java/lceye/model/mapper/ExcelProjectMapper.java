@@ -1,9 +1,8 @@
 package lceye.model.mapper;
 
+import lceye.model.dto.ExcelProjectDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
-
-import lceye.model.dto.ExcelProjectDto;
 
 @Mapper
 public interface ExcelProjectMapper {
@@ -38,6 +37,4 @@ public interface ExcelProjectMapper {
                 AND p.pjno = #{pjno};
             """)
     ExcelProjectDto readByCnoAndPjno(int cno, int pjno);
-
-
 } // Interface end

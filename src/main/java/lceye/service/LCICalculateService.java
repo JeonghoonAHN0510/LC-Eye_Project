@@ -5,16 +5,19 @@ import lceye.model.entity.ProjectEntity;
 import lceye.model.entity.ProjectResultFileEntity;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
-import lceye.util.aop.DistributedLock;
+import lceye.aop.DistributedLock;
 import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -24,6 +27,7 @@ public class LCICalculateService {
     private final JwtService jwtService;
     private final FileUtil fileUtil;
     private final ProjectResultFileRepository projectResultFileRepository;
+    private final RedisTemplate<String, Object> processRedisTemplate;
 
     /**
      * [LCI-01] LCI 계산하기
@@ -42,7 +46,7 @@ public class LCICalculateService {
         // [4] flow 결과를 누적할 Map (key: fno_isInput_uno)
         Map<String, CalculateResultDto> resultMap = new LinkedHashMap<>();
         // [4.1] 프로세스 JSON 캐시
-        Map<String, Map<String, Object>> processCache = new HashMap<>();
+//        Map<String, Map<String, Object>> processCache = new HashMap<>();
         // [4.2] 산출물 exchange(완제품) 저장용 변수 (puuid == null && isInput == false)
         Map<String, Object> productExchange = new HashMap<>();
 
@@ -73,7 +77,7 @@ public class LCICalculateService {
                 }
 
                 // [6.2] puuid 로 JSON 읽어오기 (※ porcess 캐쉬 처리!!>> 처리 속도 증가)
-                Map<String, Object> process = getProcessJsonFromCache(processCache, searchPuuid);
+                Map<String, Object> process = getProcessJsonFromCache(searchPuuid);
                 // [6.3] process 내부에서 exchanges(=flow 리스트) 가져오기
                 List<Map<String, Object>> flowExchanges =
                         (List<Map<String, Object>>) process.get("exchanges");
@@ -90,7 +94,6 @@ public class LCICalculateService {
         }
         // [7] resultMap -> List<CalculateResultDto> 변환
         List<CalculateResultDto> results = new ArrayList<>(resultMap.values());
-        System.out.println(results);
 
         // [7.1] 산출물 DTO 한 줄 추가 (productExchange가 존재할 때만)
         if (productExchange != null) {
@@ -135,8 +138,6 @@ public class LCICalculateService {
      * LCI 결과 시 매번 process 정보를 가져오는 것은 시간적으로, 물리적으로 비효율적
      * <p>
      * 한 번 읽은 process는 캐시화하여 재조회 시 속도를 증가
-     *
-     * @param processCache process 처리 이력에 대한 캐쉬
      * @param puuid        프로세스uuid
      * @return 저장되어 있는 process 정보
      * @author OngTK
@@ -144,21 +145,31 @@ public class LCICalculateService {
     @SuppressWarnings("unchecked")
     // 컴파일러가 발생시키는 “unchecked 경고”를 숨기기(무시하기)
     // 즉, 제네릭 타입이 명확하지 않은 상황에서 발생하는 경고를 없애는 어노테이션
-    private Map<String, Object> getProcessJsonFromCache(
-            Map<String, Map<String, Object>> processCache,
-            String puuid
-    ) {
-        // [1] 캐쉬에 uuid가 이미 존재하면
-        if (processCache.containsKey(puuid)) {
-            // 캐쉬에서 해당 uuid의 process를 반환
-            return processCache.get(puuid);
+    private Map<String, Object> getProcessJsonFromCache(String puuid) {
+
+        // [1] Redis 캐시 키 생성. 예: "process:00acb9f0-1640-4f8c-89ef-d857e1428be0"
+        String cacheKey = "process:" + puuid;
+        // [2] Redis 에 저장된 캐시 조회 (Object 타입으로 반환됨)
+        Object cached = processRedisTemplate.opsForValue().get(cacheKey);
+        // [3] Redis에 값이 있고, 그 값이 Map 타입이면 캐시가 존재함(캐시 히트)으로 간주
+        if (cached instanceof Map<?, ?> cachedMap) {
+            //SuppressWarnings : 어노테이션은 컴파일 경고를 사용하지 않도록 설정해주는 것으로 한마디로 이클립스에서 노란색 표시줄이 나타내는 것
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cachedProcess = (Map<String, Object>) cachedMap;
+            // [3-1] 캐시 데이터 그대로 반환
+            return cachedProcess;
         }
-        // [2] 캐쉬에 존재하지 않는다면
-        // puuid에 해당하는 프로세스 JSON 조회
+
+        // [4] 캐시에 없다면 실제 파일에서 JSON 파싱해서 가져오기
         Map<String, Object> process = fileUtil.searchProcessJson(puuid);
-        // 프로세스 캐쉬에 해댱 uuid와 프로세스 정보를 Map 형태로 저장
-        processCache.put(puuid, process);
-        // 해당 프로세스를 반환
+
+        // [5] 파일에서 정상적으로 데이터가 로드되었으면, Redis 캐시에 30분 동안 저장
+        if (process != null && !process.isEmpty()) {
+            processRedisTemplate
+                    .opsForValue()
+                    .set(cacheKey, process, Duration.ofMinutes(30));
+        }
+        // [6] 최종적으로 파일 로딩한 값 반환
         return process;
     } // func end
 
@@ -352,6 +363,7 @@ public class LCICalculateService {
         Map<String, Object> file = fileUtil.readFile("result", fileName);
         // [3] results 항목만 가져오기
         List<Map<String, Object>> results = (List<Map<String, Object>>) file.get("results");
+        if (results == null || results.isEmpty()) return null;
         // [4] result에서 input과 output을 구별
         List<Map<String, Object>> inputList = new ArrayList<>();
         List<Map<String, Object>> outputList = new ArrayList<>();
@@ -383,5 +395,4 @@ public class LCICalculateService {
         // [3] 조회된 String을 반환
         return fileName;
     } // func end
-
 } // class end

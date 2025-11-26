@@ -1,7 +1,7 @@
 package lceye.controller;
 
 import lceye.service.LCICalculateService;
-import lceye.util.aop.SessionToken;
+import lceye.aop.SessionToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

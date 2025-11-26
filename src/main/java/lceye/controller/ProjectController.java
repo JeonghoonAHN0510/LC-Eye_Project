@@ -2,7 +2,7 @@ package lceye.controller;
 
 import lceye.model.dto.ProjectDto;
 import lceye.service.ProjectService;
-import lceye.util.aop.SessionToken;
+import lceye.aop.SessionToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -62,8 +62,6 @@ public class ProjectController {
     // 플러터용 전체조회
     @GetMapping("/flutter/all")
     public ResponseEntity<?> flutterReadAllProject(@RequestHeader(value = "Authorization" ,required = false) String header){
-        System.out.println("ProjectController.flutterReadAllProject");
-        System.out.println("header = " + header);
         if (header != null && header.startsWith("Bearer ")){
             String token = header.substring(7);
             return ResponseEntity.ok(projectService.readAllProject(token));

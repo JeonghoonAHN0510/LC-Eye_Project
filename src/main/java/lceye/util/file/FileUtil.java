@@ -1,8 +1,15 @@
 package lceye.util.file;
 
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,12 +20,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import lombok.RequiredArgsConstructor;
-
 /**
  * S3 File 처리 Class
  * @author OngTK
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileUtil {
@@ -70,7 +76,7 @@ public class FileUtil {
             return true;
             // 예외처리
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return false;
         }
     } // func end
@@ -106,7 +112,7 @@ public class FileUtil {
             }
             // 예외처리
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return Map.of();
         }
     }
@@ -154,17 +160,16 @@ public class FileUtil {
                 // S3는 한 번에 최대 1,000개만 반환 가능.
                 // 따라서 자료가 1,000 개 이상이라면 ContinueToken 을 재설정한 후 do 반복문이 실행
                 request.setContinuationToken(result.getNextContinuationToken());
-                
+
                 // [9] result.isTruncated() == 파일이 잘렸음 == 아직 읽어야할 파일이 존재함을 의미
             } while (result.isTruncated());
             // 예외처리
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
         }
         // 결과 반환
         return list;
     } // func end
-
 
     /**
      * [4] 파일 삭제
@@ -195,7 +200,7 @@ public class FileUtil {
             return true;
             // 예외처리
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return false;
         }
     } // func end
@@ -223,7 +228,7 @@ public class FileUtil {
             }
             // 예외처리
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return Map.of();
         }
     } // func end
@@ -241,4 +246,3 @@ public class FileUtil {
         return type + "/" + fileName;
     }
 } // class end
-

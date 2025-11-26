@@ -1,13 +1,13 @@
 package lceye.service;
 
+import lceye.handler.WebSocketHandler;
 import lceye.model.dto.ProcessInfoDto;
 import lceye.model.dto.ProjectDto;
 import lceye.model.dto.UnitsDto;
 import lceye.model.repository.ProjectRepository;
-import lceye.util.aop.DistributedLock;
+import lceye.aop.DistributedLock;
 import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.text.similarity.JaroWinklerSimilarity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +23,12 @@ public class ExchangeService {
     private final FileUtil fileUtil;
     private final JwtService jwtService;
     private final ProjectService projectService;
-    private final TranslationService translationService;
     private final UnitsService unitsService;
     private final ProcessInfoService processInfoService;
     private final ProjectRepository projectRepository;
+    private final GeminiService geminiService;
+    private final WebSocketHandler socketHandler;
+    private final ProjectResultFileService projectResultFileService;
 
     /**
      * 투입물·산출물 저장/수정
@@ -38,13 +40,10 @@ public class ExchangeService {
      */
     @DistributedLock(lockKey = "#pjno")
     public boolean saveInfo(Map<String, Object> exchangeList, String token, int pjno) {
-        System.out.println("exchangeList = " + exchangeList + ", token = " + token);
         if (!jwtService.validateToken(token)) return false;
-        System.out.println("토큰확인 : " + jwtService.validateToken(token));
         int cno = jwtService.getCnoFromClaims(token);
         int mno = jwtService.getMnoFromClaims(token);
 
-        System.out.println("pjno = " + pjno);
         ProjectDto pjDto = projectService.findByPjno(pjno);
         if (pjDto == null) return false;
         UnitsDto unitsDto = unitsService.findByUno(pjDto.getUno());
@@ -78,7 +77,6 @@ public class ExchangeService {
         String fileName;
         if (pjDto.getPjfilename() != null && !pjDto.getPjfilename().isEmpty()) { // json 파일명 존재할때
             Map<String, Object> oldJsonFile = fileUtil.readFile("exchange", pjDto.getPjfilename());
-            System.out.println("oldJsonFile = " + oldJsonFile);
             exchangeList.put("createdate", oldJsonFile.get("createdate"));
             exchangeList.put("updatedate", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             DateTimeFormatter change = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -90,10 +88,8 @@ public class ExchangeService {
             fileName = name + now.format(formatter);
         }// if end
         boolean result = fileUtil.uploadFile("exchange", fileName, exchangeList);
-        System.out.println("result = " + result);
         if (result) {
             boolean results = projectService.updatePjfilename(fileName, pjno);
-            System.out.println("results = " + results);
             if (results) return true;
         }// if end
         return false;
@@ -110,6 +106,7 @@ public class ExchangeService {
     public Map<String, Set<String>> autoMatchCno(List<String> clientInput, String token) {
         if (!jwtService.validateToken(token)) return null;
         int cno = jwtService.getCnoFromClaims(token);
+        int mno = jwtService.getMnoFromClaims(token);
         List<String> companyFileNames = projectService.findByCno(cno);
         Set<String> inputSet = new HashSet<>(clientInput);
         Map<String, Set<String>> requestMap = new HashMap<>();
@@ -135,10 +132,18 @@ public class ExchangeService {
         }// for end
         Set<String> returnSet = new HashSet<>(inputSet);
         returnSet.removeAll(requestMap.keySet());
-        if (!returnSet.isEmpty() && returnSet != null) {
+        if (returnSet != null && !returnSet.isEmpty()) {
+            // 미매칭 항목을 '매칭 중' 상태로 requestMap에 추가
+            Set<String> matchingInProgressValue = Set.of("AI 매칭 중...");
             List<String> returnList = new ArrayList<>(returnSet);
-            Map<String, Set<String>> similarityMap = similarity(returnList);
-            requestMap.putAll(similarityMap);
+            for (String pjeName : returnList) {
+                requestMap.put(pjeName, matchingInProgressValue);
+            }// for end
+            // Gemini 호출 및 WebSocket 전송 로직
+            geminiService.similarity(returnList)
+                    .subscribe(resultMap -> {
+                        socketHandler.sendMessage(mno,resultMap);
+                    });
         }// if end
         return new HashMap<>(requestMap);
     }// func end
@@ -152,7 +157,6 @@ public class ExchangeService {
      * @author 민성호
      */
     public Map<String, Set<String>> autoMatchPjno(List<String> clientInput, String token) {
-
         if (!jwtService.validateToken(token)) return null;
         int mno = jwtService.getMnoFromClaims(token);
         List<ProjectDto> projectDtos = projectService.findByMno(mno);
@@ -161,14 +165,11 @@ public class ExchangeService {
         List<String> pjnoList = projectDtos.stream().map(ProjectDto::getPjfilename).toList();
         for (String fileName : pjnoList) {
             List<Map<String, Object>> list = fileUtil.searchFile(fileName);
-            System.out.println("list = " + list);
             for (Map<String, Object> map : list) {
                 Object obj = map.get("exchanges");
-                System.out.println("obj = " + obj);
                 if (obj instanceof List<?> rawList) {
                     for (Object exchangeObj : rawList) {
                         if (exchangeObj instanceof Map exchange) {
-                            System.out.println("exchange = " + exchange);
                             Object pjeNameObj = exchange.get("pjename");
                             Object pNameObj = exchange.get("pname");
 
@@ -207,55 +208,19 @@ public class ExchangeService {
     public boolean clearIOInfo(String token, int pjno) {
         if (!jwtService.validateToken(token)) return false;
         ProjectDto dto = projectService.findByPjno(pjno);
-        System.out.println("dto = " + dto);
+        String resultFileName = projectResultFileService.getResultFileName(pjno);
         if (dto != null) {
             boolean result = fileUtil.deleteFile("exchange", dto.getPjfilename());
-            System.out.println("result = " + result);
+            boolean result2 = fileUtil.deleteFile("result", resultFileName);
+            // 여기서 파일 삭제 진행
             if (result) {
                 boolean results = projectService.deletePjfilename(pjno);
+                projectResultFileService.deleteResultFileName(pjno);
+                // 여기서 DB 파일명 null 처리
                 if (results) return true;
             }// if end
         }// if end
         return false;
-    }// func end
-
-    /**
-     * 입력받은 투입물·산출물을 번역해서 db데이터와 유사도 측정
-     *
-     * @param clientInput 입력받은 투입물·산출물
-     * @return Map<String, Set < String>>
-     * @author 민성호
-     */
-    public Map<String, Set<String>> similarity(List<String> clientInput) {
-        List<String> transInput = translationService.TransInput(clientInput);
-        System.out.println("transInput = " + transInput);
-        List<ProcessInfoDto> processInfoEntities = processInfoService.getProcessInfo();
-        JaroWinklerSimilarity similarity = new JaroWinklerSimilarity();
-        final double benchmark = 0.90; // 90% 기준
-        Map<String, Set<String>> resultMatches = new HashMap<>();
-        for (int i = 0; i < transInput.size(); i++) {
-            String client = clientInput.get(i);
-            String input = transInput.get(i);
-            Set<String> matches = new HashSet<>();
-            if ("Routing".equals(input)) input = "diesel";
-            String lowerInput = input.toLowerCase();
-            for (ProcessInfoDto dto : processInfoEntities) {
-                String lowerPcdesc = dto.getPcdesc().toLowerCase();
-                String lowerPcname = dto.getPcname().toLowerCase();
-                Double scoreName = similarity.apply(lowerInput, lowerPcname);
-                Double scoreDesc = similarity.apply(lowerInput, lowerPcdesc);
-                boolean contains = lowerPcname.contains(lowerInput);
-                boolean containsDesc = lowerPcdesc.contains(lowerInput);
-                if (scoreName >= benchmark || contains || scoreDesc >= benchmark || containsDesc) { // 유사도 90프로 이상
-                    matches.add(dto.getPcname());
-                }// if end
-            }// for end
-            if (!matches.isEmpty()) {
-                resultMatches.put(client, matches);
-            }// if end
-        }// for end
-        System.out.println("resultMatches : " + resultMatches);
-        return new HashMap<>(resultMatches);
     }// func end
 
     /**
@@ -275,15 +240,14 @@ public class ExchangeService {
             String filename = projectRepository.findById(pjno).get().getPjfilename();
             // [3] filename으로 json 파일 불러오기
             Map<String, Object> inOutInfo = fileUtil.readFile("exchange", filename);
+            if (inOutInfo == null || inOutInfo.isEmpty()) return null;
             // [4] exchanges list 가져오기
             List<Map<String, Object>> exchanges = (List<Map<String, Object>>) inOutInfo.get("exchanges");
             // [5] exchanges 에서 input과 output 리스트를 각각 만들기
             List<Map<String, Object>> InputList = new ArrayList<>();
             List<Map<String, Object>> OutputList = new ArrayList<>();
             for (Map<String, Object> map : exchanges) {
-                System.out.println(map);
                 if ((boolean) map.get("isInput")) {
-                    System.out.println(true);
                     InputList.add(map);
                 } else {
                     OutputList.add(map);

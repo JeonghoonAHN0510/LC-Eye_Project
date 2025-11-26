@@ -11,4 +11,10 @@ public interface ProjectResultFileRepository extends JpaRepository<ProjectResult
      */
     @Query(value = "select prfname from project_resultfile where pjno= :pjno order by createdate desc limit 1 ;", nativeQuery = true)
     String returnFilename(int pjno);
+
+    @Query(value = "SELECT prfno FROM project_resultfile WHERE pjno = :pjno", nativeQuery = true)
+    int getPrfno(int pjno);
+
+    @Query(value = "update project_resultfile set prfname = '' where prfno = :prfno", nativeQuery = true)
+    void nullFileName(int prfno);
 } // interface end

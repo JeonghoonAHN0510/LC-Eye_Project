@@ -1,8 +1,7 @@
 package lceye.model.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import lceye.model.entity.ProcessInfoEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProcessInfoRepository extends JpaRepository<ProcessInfoEntity,Integer> {
 

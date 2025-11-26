@@ -19,7 +19,9 @@ import lceye.model.dto.MemberDto;
 import lceye.model.dto.RedisRequestDto;
 import lceye.model.dto.RedisResponseDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RedisService implements MessageListener {
@@ -51,11 +53,11 @@ public class RedisService implements MessageListener {
         } catch (TimeoutException e) {
             // 6. 타임아웃 시 Map에서 제거하고 null 처리 혹은 예외 던지기
             memberFutures.remove(requestId);
-            System.out.println("[8081] 응답 시간 초과");
+            log.error(e.getMessage());
             return null;
         } catch (Exception e) {
             memberFutures.remove(requestId);
-            e.printStackTrace();
+            log.error(e.getMessage());
             throw new RuntimeException("Redis 통신 중 오류 발생");
         } // try-catch end
     } // func end
@@ -66,7 +68,7 @@ public class RedisService implements MessageListener {
             // 1. 받은 메시지를 JSON 문자열로 변환
             String body = new String(message.getBody());
             RedisResponseDto responseDto = objectMapper.readValue(body, RedisResponseDto.class);
-            System.out.println("[8081 서버] 요청 받음! " + responseDto);
+            System.out.println("[8081 서버] 요청 받음 " + responseDto);
             // 2. 대기열에서 해당 요청번호를 가진 Future 찾기
             String requestId = responseDto.getResponseId();
             CompletableFuture<MemberDto> future = memberFutures.remove(requestId);
@@ -75,7 +77,7 @@ public class RedisService implements MessageListener {
                 future.complete(responseDto.getResponseMember());
             } // if end
         } catch (Exception e) {
-            System.out.println("e = " + e);
+            log.error(e.getMessage());
         } // try-catch end
     } // func end
 } // class end

@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lceye.service.ExcelService;
-import lceye.util.aop.SessionToken;
+import lceye.aop.SessionToken;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -31,10 +31,9 @@ public class ExcelController {
                                            HttpServletResponse response){
         // [2] service에 엑셀 출력 요청
         boolean result = excelService.downloadExcel(token, pjno, response);
-        
+
         // [3] 결과 반환
         if(!result) return ResponseEntity.status(403).body("잘못된 요청입니다.");
-        return ResponseEntity.ok(true);
+        return ResponseEntity.ok().build();
     } // func end
-
 } // class end

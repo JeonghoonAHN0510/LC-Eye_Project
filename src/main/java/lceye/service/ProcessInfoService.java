@@ -37,4 +37,12 @@ public class ProcessInfoService {
                 .stream().map(ProcessInfoEntity::toDto).toList();
     }// func end
 
+    /**
+     * 매칭에 필요한 pcname과 pcdesc 만 조회
+     *
+     * @return List
+     */
+    public List<ProcessInfoDto> matchData(){
+        return processInfoMapper.matchData();
+    }// func end
 }// class end

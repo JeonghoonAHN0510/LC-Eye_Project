@@ -1,4 +1,4 @@
-package lceye.util.aop;
+package lceye.aop;
 
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -12,6 +12,7 @@ public class ParameterParser {
      * @param args       메소드의 실제 인자값 배열 (예: ["300001", "token 내용"])
      * @param key        변환할 SpEL 문자열 (예: "#pjno")
      * @return SpEL을 통해 추출된 실제 값 (Object 타입)
+     * @author AhnJH
      */
     public static Object getDynamicValue(String[] parameters, Object[] args, String key){
         // 1. SpEL 파서 생성 : 문자열로 된 표현식을 이해하고 해석할 수 있음

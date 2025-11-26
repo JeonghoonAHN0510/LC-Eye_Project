@@ -19,10 +19,12 @@ import lceye.model.dto.ExcelProjectDto;
 import lceye.model.mapper.ExcelProjectMapper;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.ProjectResultFileRepository;
-import lceye.util.aop.DistributedLock;
+import lceye.aop.DistributedLock;
 import lceye.util.file.FileUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -44,8 +46,6 @@ public class ExcelService {
      */
     @DistributedLock(lockKey = "#pjno")
     public boolean downloadExcel(String token, int pjno, HttpServletResponse response) {
-        System.out.println("ExcelService.downloadExcel");
-        System.out.println("token = " + token + ", pjno = " + pjno + ", response = " + response);
         // [1] 로그인 토큰 확인
         // [1.1] 로그인 토큰이 비어있으면 false
         if (!jwtService.validateToken(token)) return false;
@@ -53,7 +53,6 @@ public class ExcelService {
         int mno = jwtService.getMnoFromClaims(token);
         int cno = jwtService.getCnoFromClaims(token);
         String mrole = jwtService.getRoleFromClaims(token);
-        System.out.println("[Excel-01 Token Check] " + mno + " / " + cno + " / " + mrole);
         // [2] pjno 유효성 검사·존재여부 확인
         // [2.1] pjno 유효성 검사
         if (pjno == 0) return false;
@@ -64,11 +63,9 @@ public class ExcelService {
         if (mrole.equals("WORKER")) {
             // [2.3.1] WORKER 는 본인 mno에 한정하여 조회되어야 함
             excelProjectDto = excelProjectMapper.readByMnoAndPjno(mno, pjno);
-            System.out.println(excelProjectDto);
         } else if (mrole.equals("ADMIN") || mrole.equals("MANAGER")) {
             // [2.3.2] ADMIN, MANAGER 는 본인과 작성자가 아니더라도 cno가 일치하면 조회 가능
             excelProjectDto = excelProjectMapper.readByCnoAndPjno(cno, pjno);
-            System.out.println(excelProjectDto);
         }
 
         // [3] pjno 존재시 excel 생성 및 첫번째 시트 작성
@@ -122,7 +119,7 @@ public class ExcelService {
             response.flushBuffer();
             return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return false;
         } // try-catch end
     } // func end
@@ -139,19 +136,15 @@ public class ExcelService {
         // [2] 파일명 작성 : "프로젝트명_yyyyMMdd_hhmmss.xlsx"
         // [2.1] 프로젝트 명 추출
         String projectName = excelProjectDto.getPjname();
-        System.out.println("projectName 1 = " + projectName);
         if (projectName == null || projectName.isBlank()) {
             projectName = "project";
         }
-        System.out.println("projectName 2 = " + projectName);
         // [2.2] timestamp 작성
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         // [2.3] 파일명 작성 + 확장자 작성
         String fileName = projectName + "_" + timestamp + ".xlsx";
-        System.out.println("fileName = " + fileName);
         // [2.4] 한글을 UTF_8 인코딩
         String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
-        System.out.println("encodedFileName = " + encodedFileName);
         // [3] 다운로드를 위해 response 객체에 response 설정
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFileName + "\"");
@@ -247,11 +240,8 @@ public class ExcelService {
             // [3.1.3] 명칭
             String pjename = defaultString(map.get("pjename") == null ? null : map.get("pjename").toString());
             // [3.1.4] 양
-            Object amountObj = map.get("pjeamount");
-            double amount = 0;
-            if (amountObj instanceof Number num) {
-                amount = num.doubleValue();
-            }
+            String amountObj = defaultString(map.get("pjeamount") == null ? null : map.get("pjeamount").toString());
+            double amount = Double.parseDouble(amountObj);
             // [3.1.5] 단위
             String uname = defaultString(map.get("uname") == null ? null : map.get("uname").toString());
             // [3.1.6] 프로세스명
@@ -282,7 +272,6 @@ public class ExcelService {
     private void writeProjectResult(Workbook workbook,
                                     List<Map<String, Object>> inputList,
                                     List<Map<String, Object>> outputList) {
-        System.out.println("ExcelService.writeProjectResult");
 
         // [1] 시트 생성 + 시트명 지정
         Sheet sheet = workbook.createSheet("LCI결과");

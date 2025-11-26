@@ -1,4 +1,4 @@
-package lceye.util.aop;
+package lceye.aop;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.springframework.stereotype.Component;

@@ -40,5 +40,4 @@ public interface ProjectMapper {
             select p.*, m.mname from project p join member m on p.mno = m.mno where m.cno= #{cno};
             """)
     List<ProjectDto> readByCno(int cno);
-
 }// interface end

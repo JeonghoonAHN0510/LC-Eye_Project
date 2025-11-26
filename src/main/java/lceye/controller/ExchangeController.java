@@ -1,8 +1,7 @@
 package lceye.controller;
 
 import lceye.service.ExchangeService;
-import lceye.service.TranslationService;
-import lceye.util.aop.SessionToken;
+import lceye.aop.SessionToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +17,6 @@ public class ExchangeController {
     /**
      * 서비스 불러오기
      */
-    private final TranslationService translationService;
     private final ExchangeService exchangeService;
 
     //@PostMapping("/auto") // localhost:8080/api/inout/auto
@@ -38,7 +36,6 @@ public class ExchangeController {
     @PostMapping
     public ResponseEntity<?> saveIOInfo(@SessionToken String token,
                                         @RequestBody Map<String,Object> map){
-        System.out.println("map : " + map);
         if (token != null){
             Object pjnoObject = map.get("pjno");
             int pjno = 0;

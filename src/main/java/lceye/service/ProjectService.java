@@ -7,9 +7,8 @@ import lceye.model.entity.UnitsEntity;
 import lceye.model.mapper.ProjectMapper;
 import lceye.model.repository.ProjectRepository;
 import lceye.model.repository.UnitsRepository;
-import lceye.util.aop.DistributedLock;
+import lceye.aop.DistributedLock;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,8 +30,6 @@ public class ProjectService {
      * [PJ-01] 프로젝트 등록
      */
     public ProjectDto saveProject(String token, ProjectDto projectDto){
-        System.out.println("ProjectService.saveProject");
-        System.out.println("token = " + token + ", projectDto = " + projectDto);
 
         // [1.1] Token이 없으면
         if(!jwtService.validateToken(token)) return projectDto; // PK 발급 안되고 종료
@@ -222,5 +219,4 @@ public class ProjectService {
         } // if end
         return null;
     }// func end
-
 } // class end

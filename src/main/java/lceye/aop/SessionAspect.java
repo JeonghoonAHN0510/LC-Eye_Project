@@ -1,4 +1,4 @@
-package lceye.util.aop;
+package lceye.aop;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -12,11 +12,25 @@ import java.lang.reflect.Parameter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import lceye.service.JwtService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class SessionAspect {
+    private final JwtService jwtService;
 
+    /**
+     * 메소드 실행 전, Session에서 Token을 추출해서 주입해주는 역할
+     *
+     * @param joinPoint 메소드 실행제어
+     * @return 메소드 실행 및 반환
+     * @throws Throwable
+     * @author AhnJH
+     */
     @Around("execution(* lceye.controller..*(..))")
     public Object injectToken(ProceedingJoinPoint joinPoint) throws Throwable {
         // 1. 현재 요청에서 세션과 토큰 추출
@@ -36,12 +50,21 @@ public class SessionAspect {
             } // if end
         } // if end
 
-        // 2. 컨트롤러 메소드의 매개변수 정보 가져오기
+        // 2. 토큰 유효성 검사 (Token Validation)
+        if (token != null) {
+            boolean isValid = jwtService.validateToken(token);
+
+            if (!isValid) {
+                throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+            } // if end
+        } // if end
+
+        // 3. 컨트롤러 메소드의 매개변수 정보 가져오기
         Object[] args = joinPoint.getArgs();
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Parameter[] parameters = signature.getMethod().getParameters();
 
-        // 3. 매개변수를 순회하면서 @SessionToken이 붙은 곳 찾기
+        // 4. 매개변수를 순회하면서 @SessionToken이 붙은 곳 찾기
         for (int i = 0; i < parameters.length; i++){
             // 3.1. SessionToken이 붙은 매개변수를 찾고
             if (parameters[i].isAnnotationPresent(SessionToken.class)){
@@ -52,6 +75,23 @@ public class SessionAspect {
                 } // if end
             } // if end
         } // for end
-        return joinPoint.proceed(args);
+
+        // =========================== [시간 측정 시작] ===========================
+        long startTime = System.currentTimeMillis();
+
+        // 실제 컨트롤러 메서드 실행
+        Object result = joinPoint.proceed(args);
+
+        // 실행 시간 측정 종료 및 로그 출력
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+
+        // 어떤 컨트롤러의 메서드가 얼마나 걸렸는지 출력 (예: ProjectController.getList)
+        String methodName = signature.getDeclaringType().getSimpleName() + "." + signature.getName();
+
+        log.info("⏱️ 실행 시간: {} ms | 메서드: {}", duration, methodName);
+        // =========================================================
+
+        return result;
     } // func end
 } // class end

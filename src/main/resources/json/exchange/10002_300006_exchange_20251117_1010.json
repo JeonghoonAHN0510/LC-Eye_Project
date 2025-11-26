@@ -10,7 +10,7 @@
   "updatedate": "2025-11-17 10:10:09",
   "exchanges": [
     {
-      "pjename": "폴리프로필렌(원재료)",
+      "pjename": "폴리프로필렌",
       "pjeamount": 825.0,
       "isInput": true,
       "uname": "kg",
@@ -18,7 +18,7 @@
       "pname": "market for maintenance, intermodal shipping container, 45-foot, high-cube | maintenance, intermodal shipping container, 45-foot, high-cube"
     },
     {
-      "pjename": "폴리에틸렌(원재료)",
+      "pjename": "폴리에틸렌",
       "pjeamount": 375.0,
       "isInput": true,
       "uname": "kg",
@@ -26,7 +26,7 @@
       "pname": "market for alkylbenzene sulfonate, linear, petrochemical | alkylbenzene sulfonate, linear, petrochemical"
     },
     {
-      "pjename": "종이(포장재)",
+      "pjename": "종이",
       "pjeamount": 75.0,
       "isInput": true,
       "uname": "kg",
@@ -34,7 +34,7 @@
       "pname": "treatment of sewage sludge, 70% water, WWT-SLF, waste graphical paper, municipal incineration | electricity, for reuse in municipal waste incineration only"
     },
     {
-      "pjename": "용제(세정제)",
+      "pjename": "용제",
       "pjeamount": 15.0,
       "isInput": true,
       "uname": "kg",
@@ -42,7 +42,7 @@
       "pname": "methanol to generic market for solvent for chromatography analysis | solvent for chromatography analysis"
     },
     {
-      "pjename": "윤활유(윤활유)",
+      "pjename": "윤활유",
       "pjeamount": 12.0,
       "isInput": true,
       "uname": "kg",
@@ -50,7 +50,7 @@
       "pname": "treatment of bottom ash, MSWI, residue from mechanical treatment, laptop computer, slag compartment | bottom ash, MSWI, residue from mechanical treatment, laptop computer"
     },
     {
-      "pjename": "촉매(촉매)",
+      "pjename": "촉매",
       "pjeamount": 4.5,
       "isInput": true,
       "uname": "kg",
@@ -58,7 +58,7 @@
       "pname": "treatment of bottom ash, MSWI, residue from mechanical treatment, laptop computer, slag compartment | bottom ash, MSWI, residue from mechanical treatment, laptop computer"
     },
     {
-      "pjename": "종이(포장재)",
+      "pjename": "종이",
       "pjeamount": 30.0,
       "isInput": true,
       "uname": "kg",
@@ -66,7 +66,7 @@
       "pname": "treatment of sewage sludge, 70% water, WWT-SLF, waste graphical paper, municipal incineration | electricity, for reuse in municipal waste incineration only"
     },
     {
-      "pjename": "폴리에틸렌(원재료)",
+      "pjename": "폴리에틸렌",
       "pjeamount": 30.0,
       "isInput": true,
       "uname": "kg",
@@ -74,7 +74,7 @@
       "pname": "market for alkylbenzene sulfonate, linear, petrochemical | alkylbenzene sulfonate, linear, petrochemical"
     },
     {
-      "pjename": "건조공정 투입물 제품(생산품)",
+      "pjename": "건조공정 투입물 제품",
       "pjeamount": 1125.0,
       "isInput": false,
       "uname": "kg",
@@ -82,7 +82,7 @@
       "pname": null
     },
     {
-      "pjename": "혼합폐기물(폐기물)",
+      "pjename": "혼합폐기물",
       "pjeamount": 45.0,
       "isInput": false,
       "uname": "kg",
@@ -90,7 +90,7 @@
       "pname": "treatment of bottom ash, MSWI, residue from mechanical treatment, laptop computer, slag compartment | bottom ash, MSWI, residue from mechanical treatment, laptop computer"
     },
     {
-      "pjename": "슬러지(건조물질)",
+      "pjename": "슬러지",
       "pjeamount": 15.0,
       "isInput": false,
       "uname": "kg",
@@ -98,7 +98,7 @@
       "pname": "treatment of sewage sludge, 70% water, WWT, WW from liquid crystal production, municipal incineration | heat, for reuse in municipal waste incineration only"
     },
     {
-      "pjename": "강재(원재료)",
+      "pjename": "강재",
       "pjeamount": 7.5,
       "isInput": false,
       "uname": "kg",
