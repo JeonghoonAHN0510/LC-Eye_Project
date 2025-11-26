@@ -37,38 +37,37 @@ public class DistributedLockAspect {
         String lockKey = "lock:project:aop:" + key;
         RLock rLock = redissonClient.getLock(lockKey);
         try {
+            if (rLock.isLocked()){
+                log.info("[대기 진입] 이미 락이 점유된 상태입니다. 락 획득을 대기합니다.");
+            } // if end
+
+            long waitStartTime = System.currentTimeMillis();
             // 3. 락 획득 시도
             boolean available = rLock.tryLock(
                     distributedLock.waitTime(),
                     distributedLock.leaseTime(),
                     distributedLock.timeUnit()
             );
+            long waitTime = System.currentTimeMillis() - waitStartTime;
+
             // 4. 락 획득에 실패했다면, 메소드 종료
             if (!available){
                 log.warn("락 획득 실패 - 키: {}", lockKey);
                 return false;
             } // if end
+
+            if (waitTime > 100) { // 예: 100ms 이상 걸렸다면 대기한 것으로 간주
+                log.info("[대기 후 획득] {}ms 대기 후 락 획득 성공 - 키: {}", waitTime, lockKey);
+            } else {
+                log.info("[즉시 획득] 락 획득 성공 - 키: {}", lockKey);
+            } // if end
+
             // 5. 락 획득에 성공했다면, 비지니스 로직 실행
-            // 트랜잭션을 보장하기 위해서 클래스 분리
-            log.info("락 획득 성공 - 키: {}", lockKey);
-            // --- [시간 측정 시작] ---
-            long startTime = System.currentTimeMillis();
-
-            // 트랜잭션을 보장하기 위해 분리된 클래스의 메서드 실행
-            Object result = aopTransaction.proceed(joinPoint);
-
-            // --- [시간 측정 종료] ---
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
-
-            log.info("⏱️ 실행 시간: {} ms | 키: {}", duration, lockKey);
-
-            return result;
+            return aopTransaction.proceed(joinPoint);
         } catch (InterruptedException e) {
             throw new InterruptedException();
         } finally {
             try {
-                // 6. 락 해제 (중요: 내가 잡은 락인지, 아직 잠겨있는지 확인)
                 if (rLock.isLocked() && rLock.isHeldByCurrentThread()) {
                     rLock.unlock();
                     log.info("락 해제 완료 - 키: {}", lockKey);
